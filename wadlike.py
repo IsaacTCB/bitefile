@@ -20,6 +20,7 @@ def input_validate(in_paths: list[str]):
 
 def process_file(in_path: Path):
     """Opens a file and returns its data to be stored."""
+
     file = open(in_path.as_posix(), "rb")
     bytes = file.read()
     return bytes
@@ -56,6 +57,20 @@ def write_header(
     )
 
 
+def write_padding(
+        out_file,
+        alignment=16,
+):
+    """Writes empty padding until the file cursor is on a block alignment"""
+
+    pad = alignment - (out_file.tell() % alignment)
+    pad = pad % alignment
+    for i in range(pad):
+        out_file.write(
+            struct.pack("b", 0)
+        )
+
+
 def parser_build():
     """Builds an argparse object containing all relevant cli data"""
 
@@ -68,6 +83,10 @@ def parser_build():
         action="extend",
         nargs="+",
         default=[],
+    )
+    parser.add_argument(
+        "-a", "--alignment",
+        default=16,
     )
     parser.add_argument(
         "-o", "--output",
@@ -100,6 +119,8 @@ def main():
         write_header(out)  # Write stub header
 
         for in_path in args.input:
+            write_padding(out, args.alignment)
+
             # Check file stem to see if it's in snake_case using RegEx.
             # regex_match = re.fullmatch(
             #     "[a-z]+(_[a-z]+)*", Path(in_path).stem()
@@ -130,6 +151,7 @@ def main():
             file_metadata_entries.append(entry)
 
         # File metadata table
+        write_padding(out, args.alignment)
         file_metadata_offset = out.tell()
         for file_entry in file_metadata_entries:
             # Write offset + data size (4 bytes + 4 bytes)
