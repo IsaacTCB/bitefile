@@ -42,18 +42,27 @@ def write_header(
     out_file.write(magic)
 
     # version (2 bytes)
-    out_file.write(
-        struct.pack("<H", header_version)
-    )
+    write_packed(out_file, "<H", header_version)
 
     # offset (4 bytes)
-    out_file.write(
-        struct.pack("<I", file_entries_offset)
-    )
+    write_packed(out_file, "<I", file_entries_offset)
 
     # number of files (4 bytes)
+    write_packed(out_file, "<I", file_entries_count)
+
+
+def write_packed(
+        out_file,
+        fmt: str,
+        *values
+):
+    """Writes a struct template to output file"""
+
+    if ">" not in fmt and "<" not in fmt:
+        fmt = "<" + fmt  # Ensure little endian
+
     out_file.write(
-        struct.pack("<I", file_entries_count)
+        struct.pack(fmt, *values)
     )
 
 
@@ -66,9 +75,7 @@ def write_padding(
     pad = alignment - (out_file.tell() % alignment)
     pad = pad % alignment
     for i in range(pad):
-        out_file.write(
-            struct.pack("b", 0)
-        )
+        write_packed(out_file, "b", 0)
 
 
 def parser_build():
@@ -155,20 +162,14 @@ def main():
         file_metadata_offset = out.tell()
         for file_entry in file_metadata_entries:
             # Write offset + data size (4 bytes + 4 bytes)
-            out.write(
-                struct.pack("<II", file_entry["offset"], file_entry["size"])
-            )
+            write_packed(out, "<II", file_entry["offset"], file_entry["size"])
 
             # Reserved data (4 bytes)
-            out.write(
-                struct.pack("<I", 0)
-            )
+            write_packed(out, "<I", 0)
 
             # Filename length + data (4 bytes + variable length)
             encoded_name = file_entry["name"].encode('utf-8')
-            out.write(
-                struct.pack("<H", len(encoded_name))
-            )
+            write_packed(out, "<H", len(encoded_name))
             out.write(encoded_name)
 
         # Update header w/ new info
