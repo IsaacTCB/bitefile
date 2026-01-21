@@ -38,7 +38,7 @@ def write_header(
     """
 
     # magic (4 bytes, ascii)
-    magic = b"LWAD"
+    magic = b"BITE"
     out_file.write(magic)
 
     # version (2 bytes)
@@ -106,11 +106,11 @@ def main():
     parser = parser_build()
     args = parser.parse_args()
 
-    # Ensure .wad extension for final name
-    # "file" -> "file.wad"
-    # "file.wad" -> "file.wad"
+    # Ensure .bite extension for final name
+    # "file" -> "file.bite"
+    # "file.bite" -> "file.bite"
     out_path: str = args.output
-    out_path = out_path.removesuffix(".wad") + ".wad"
+    out_path = out_path.removesuffix(".bite") + ".bite"
 
     with open(out_path, "wb") as out:
         file_metadata_offset = 0

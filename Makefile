@@ -1,4 +1,4 @@
-TARGET := data.wad
+TARGET := data.bite
 
 ASSETS_DIR := assets
 ASSETS := $(shell find $(ASSETS_DIR) -type f)
