@@ -7,10 +7,17 @@
 #define BITE_FILE_MAGIC (1163151682) /* BITE, in ASCII */
 #define BITE_FILE_VERSION (1)
 
+// Safe file reader wrapper. Calls 'return BITE_ERR_MALFORMED' on fail.
+#define BITE_IMPL_READ(dst, file)   do { \
+                                        int8_t status = bite__fread(dst, sizeof(*dst), file); \
+                                        if (!status) return BITE_ERR_MALFORMED; \
+                                    } while (0) \
+
 typedef enum {
     BITE_OK = 0,
     BITE_ERR_INVALID, // Not a valid bite file!
     BITE_ERR_INCOMPATIBLE, // Incompatible version
+    BITE_ERR_MALFORMED,    // Malformed file format
 
 } bite_status_e;
 
@@ -31,42 +38,46 @@ typedef struct {
 
 } bite_entry_t;
 
-static uint8_t bite__fread(void* out_ptr, size_t size, FILE* file) {
-    // @todo: Wrap all bite__fread calls into a #define.
-    return fread(out_ptr, size, 1, file) == size;
+// Raw usage of this function should be avoided unless strictly needed;
+// Use BITE_IMPL_READ wrapper instead, as that is safer and a whole lot cleaner.
+static int8_t bite__fread(void* out_ptr, size_t size, FILE* file) {
+    return fread(out_ptr, size, 1, file) == 1;
 }
 
 static bite_status_e bite__header_read(bite_header_t* header, FILE* file) {
-    bite__fread(&(header->magic), sizeof(uint32_t), file);
+    BITE_IMPL_READ(&(header->magic), file);
     if (header->magic != BITE_FILE_MAGIC) {
         // printf("%d != %d", header->magic, BITE_FILE_MAGIC);
         return BITE_ERR_INVALID;
     }
 
-    bite__fread(&(header->version), sizeof(uint16_t), file);
+    BITE_IMPL_READ(&(header->version), file);
     if (header->version != BITE_FILE_VERSION) {
         return BITE_ERR_INCOMPATIBLE;
     }
 
-    bite__fread(&(header->file_entry_offset), sizeof(uint32_t), file);
-    bite__fread(&(header->file_entry_count),  sizeof(uint32_t), file);
-    bite__fread(&(header->reserved), sizeof(uint16_t), file);
+    BITE_IMPL_READ(&(header->file_entry_offset), file);
+    BITE_IMPL_READ(&(header->file_entry_count), file);
+    BITE_IMPL_READ(&(header->reserved), file);
 
     return BITE_OK;
 }
 
 static bite_status_e bite__entry_read(bite_entry_t* entry, FILE* file) {
-    bite__fread(&(entry->data_offset),   sizeof(uint32_t), file);
-    bite__fread(&(entry->data_size), sizeof(uint32_t), file);
-    bite__fread(&(entry->reserved), sizeof(uint32_t), file);
+    BITE_IMPL_READ(&(entry->data_offset), file);
+    BITE_IMPL_READ(&(entry->data_size), file);
+    BITE_IMPL_READ(&(entry->reserved), file);
 
+    // Stored strings are variable length.
+    // First comes length (2 bytes), then afterwards
+    // is a continuous ASCII/UTF-8 string (not null-terminated)
     uint16_t name_length;
-    fread(&name_length, sizeof(uint16_t), 1, file);
+    BITE_IMPL_READ(&name_length, file);
 
+    // @todo: use memory arena for storing strings.
     char* name = (char*)malloc(name_length+1);
     bite__fread(name, name_length, file);
     name[name_length] = '\0';
-
     entry->name = name;
 
     return BITE_OK;
@@ -96,23 +107,35 @@ static bite_status_e bite__entry_table_read(bite_entry_t** entry_table, size_t e
 }
 
 int main(int argc, char* argv[]) {
-    const char* bite_filepath = "data.bite";
+    char* bite_filepath = "data.bite";
+    if (argc > 1) {
+        bite_filepath = argv[1];
+    }
+
     FILE* file = fopen(bite_filepath, "rb");
+    if (file == NULL) {
+        printf("Unable to open file at \"%s\"\n", bite_filepath);
+        exit(2);
+    }
     
     // Parse header
     bite_header_t bite_header;
     bite_status_e status = bite__header_read(&bite_header, file);
     if (status != BITE_OK) {
-        printf("Unable to parse header. Err: %d", status);
+        printf("Unable to parse header. Err: %d\n", status);
         exit(3);
     }
 
     // Load file entry table
-    fseek(file, bite_header.file_entry_offset, SEEK_SET);
+    if (fseek(file, bite_header.file_entry_offset, SEEK_SET) != 0) {
+        printf("Unable to seek to skip file entry table.\n");
+        exit(3);
+    }
+
     bite_entry_t* entry_table = NULL;
     status = bite__entry_table_read(&entry_table, bite_header.file_entry_count, file);
     if (status != BITE_OK) {
-        printf("Unable to parse file entry table. Err: %d", status);
+        printf("Unable to parse file entry table. Err: %d\n", status);
         exit(3);
     }
 
