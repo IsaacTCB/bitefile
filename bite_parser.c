@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -9,7 +10,7 @@
 
 // Safe file reader wrapper. Calls 'return BITE_ERR_MALFORMED' on fail.
 #define BITE_IMPL_READ(dst, file)   do { \
-                                        int8_t status = bite__fread(dst, sizeof(*dst), file); \
+                                        int status = bite__fread(dst, sizeof(*dst), file); \
                                         if (!status) return BITE_ERR_MALFORMED; \
                                     } while (0) \
 
@@ -38,9 +39,54 @@ typedef struct {
 
 } bite_entry_t;
 
+typedef struct {
+    struct {
+        bite_entry_t* entries;
+        size_t count;
+    } file;
+
+    // struct {
+    //     char* ptr;
+    //     size_t size;
+    //     size_t capacity;
+    // } pool;
+
+} bite_table_t;
+
+typedef struct {
+    FILE* handle;
+    bite_header_t header;
+    bite_table_t table;
+
+} bite_packed_t;
+
+typedef struct {
+    bite_packed_t* packed_ref; // Weak ref, packed is responsible for closing itself
+    // bite_file_entry* entry_ref; // Same as above
+    size_t pos;
+
+} bite_file_t;
+
+// -------------
+// Public
+// -------------
+
+bite_packed_t* bite_packed_open(const char* filepath);
+void           bite_packed_close(bite_packed_t* packed);
+
+bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath);
+void         bite_fread(void* dst, size_t size, bite_file_t* file);
+size_t       bite_ftell(bite_file_t* file);
+void         bite_fseek(bite_file_t* file, size_t pos, int whence);
+void         bite_fclose(bite_file_t* file);
+
+// -------------
+// Private
+// --------------
+
 // Raw usage of this function should be avoided unless strictly needed;
 // Use BITE_IMPL_READ wrapper instead, as that is safer and a whole lot cleaner.
-static int8_t bite__fread(void* out_ptr, size_t size, FILE* file) {
+static int bite__fread(void* out_ptr, size_t size, FILE* file) {
     return fread(out_ptr, size, 1, file) == 1;
 }
 
@@ -76,34 +122,108 @@ static bite_status_e bite__entry_read(bite_entry_t* entry, FILE* file) {
 
     // @todo: use memory arena for storing strings.
     char* name = (char*)malloc(name_length+1);
-    bite__fread(name, name_length, file);
+
+    do {
+        int status = bite__fread(name, name_length, file);
+        if (!status) {
+            free(name); // Memory arenas would fix this
+            return BITE_ERR_MALFORMED;
+        }
+    } while (0);
+
     name[name_length] = '\0';
     entry->name = name;
 
     return BITE_OK;
 }
 
-static bite_status_e bite__entry_table_read(bite_entry_t** entry_table, size_t entry_count, FILE* file) {
+static bite_status_e bite__table_read(bite_table_t* table, bite_header_t* header, FILE* file);
+static void          bite__table_close(bite_table_t* table);
+
+// Allocates data, so this must be freed using bite_table_close()!
+static bite_status_e bite__table_read(bite_table_t* table, bite_header_t* header, FILE* file) {
+    size_t file_count = header->file_entry_count;
+
     bite_status_e status;
 
-    bite_entry_t* entries = (bite_entry_t*)malloc(sizeof(bite_entry_t) * entry_count);
-    for (size_t i = 0; i < entry_count; i++) {
-        bite_entry_t* entry = entries + i;
-        status = bite__entry_read(entry, file);
-        if (status != BITE_OK) {
-            // Free up all string data
-            for (size_t j = 0; j < i; j++) {
-                entry = entries + j;
-                free(entry->name); // This is annoying. Perhaps a memory arena would be more fitting?
-            }
+    table->file.entries = (bite_entry_t*)malloc(sizeof(bite_entry_t) * file_count);
+    if (!table->file.entries) return BITE_ERR_INVALID;
 
-            free(entries);
+    table->file.count = file_count;
+    
+    // Skip to file entry offset
+    long old_pos = ftell(file);
+    if (fseek(file, header->file_entry_offset, SEEK_SET) != 0) {
+        printf("Unable to seek to skip file entry table.\n");
+        return BITE_ERR_MALFORMED;
+    }
+
+    for (size_t i = 0; i < file_count; i++) {
+        bite_entry_t* entry = table->file.entries + i;
+        status = bite__entry_read(entry, file);
+
+        if (status != BITE_OK) {
+            table->file.count = i; // hacky, but works
+            bite__table_close(table);
             return status;
         }
     }
 
-    *entry_table = entries;
+    fseek(file, old_pos, SEEK_SET);
     return BITE_OK;
+}
+
+static void bite__table_close(bite_table_t* table) {
+    if (table->file.entries) {
+        for (size_t i = 0; i < table->file.count; i++) {
+            bite_entry_t* entry = table->file.entries + i;
+            free(entry->name); // This is annoying. Perhaps a memory arena would be more fitting?
+        }
+
+        free(table->file.entries);
+        table->file.entries = NULL;
+    }
+
+    table->file.count = 0;
+}
+
+bite_packed_t* bite_packed_open(const char* filepath) {
+    bite_packed_t* packed = NULL;
+
+    FILE* file = fopen(filepath, "rb");
+    if (file == NULL) {
+        printf("Unable to open file at \"%s\"\n", filepath);
+        return NULL;
+    }
+
+    packed = (bite_packed_t*)malloc(sizeof(*packed));
+    memset(packed, 0, sizeof(*packed));
+
+    packed->handle = file;
+
+    bite_status_e status = bite__header_read(&packed->header, file);
+    if (status != BITE_OK) {
+        printf("Unable to parse header. Err: %d\n", status);
+        fclose(file);
+        free(packed);
+        return NULL;
+    }
+
+    status = bite__table_read(&packed->table, &packed->header, file);
+    if (status != BITE_OK) {
+        printf("Unable to parse header. Err: %d\n", status);
+        fclose(file);
+        free(packed);
+        return NULL;
+    }
+
+    return packed;
+}
+
+void bite_packed_close(bite_packed_t* packed) {
+    fclose(packed->handle);
+    bite__table_close(&packed->table);
+    free(packed);
 }
 
 int main(int argc, char* argv[]) {
@@ -111,45 +231,18 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
         bite_filepath = argv[1];
     }
-
-    FILE* file = fopen(bite_filepath, "rb");
-    if (file == NULL) {
-        printf("Unable to open file at \"%s\"\n", bite_filepath);
-        exit(2);
-    }
     
-    // Parse header
-    bite_header_t bite_header;
-    bite_status_e status = bite__header_read(&bite_header, file);
-    if (status != BITE_OK) {
-        printf("Unable to parse header. Err: %d\n", status);
-        exit(3);
-    }
-
-    // Load file entry table
-    if (fseek(file, bite_header.file_entry_offset, SEEK_SET) != 0) {
-        printf("Unable to seek to skip file entry table.\n");
-        exit(3);
-    }
-
-    bite_entry_t* entry_table = NULL;
-    status = bite__entry_table_read(&entry_table, bite_header.file_entry_count, file);
-    if (status != BITE_OK) {
-        printf("Unable to parse file entry table. Err: %d\n", status);
+    bite_packed_t* packed = bite_packed_open(bite_filepath);
+    if (!packed) {
         exit(3);
     }
 
     // Print filenames
-    for (size_t i = 0; i < bite_header.file_entry_count; i++) {
-        bite_entry_t* entry = entry_table + i;
+    for (size_t i = 0; i < packed->table.file.count; i++) {
+        bite_entry_t* entry = packed->table.file.entries + i;
         printf("FILE: %s\n", entry->name);
     }
 
-    // Free up all data
-    for (size_t i = 0; i < bite_header.file_entry_count; i++) {
-        bite_entry_t* entry = entry_table + i;
-        free(entry->name); // This is annoying. Perhaps a memory arena would be more fitting?
-    }
-    free(entry_table);
+    bite_packed_close(packed);
     return 0;
 }
