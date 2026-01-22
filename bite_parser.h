@@ -20,6 +20,7 @@ void           bite_packed_close(bite_packed_t* packed); // Closes a bite-packed
 
 // File operations
 bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath);
+const char*  bite_fname(bite_file_t* file);
 size_t       bite_fsize(bite_file_t* file);
 size_t       bite_fread(void* dst, size_t size, bite_file_t* file);
 size_t       bite_ftell(bite_file_t* file);
