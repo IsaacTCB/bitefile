@@ -62,7 +62,7 @@ typedef struct {
 
 typedef struct {
     bite_packed_t* packed_ref; // Weak ref, packed is responsible for closing itself
-    // bite_file_entry* entry_ref; // Same as above
+    bite_entry_t*  entry_ref; // Same as above
     size_t pos;
 
 } bite_file_t;
@@ -75,9 +75,10 @@ bite_packed_t* bite_packed_open(const char* filepath);
 void           bite_packed_close(bite_packed_t* packed);
 
 bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath);
-void         bite_fread(void* dst, size_t size, bite_file_t* file);
+size_t       bite_fsize(bite_file_t* file);
+size_t       bite_fread(void* dst, size_t size, bite_file_t* file);
 size_t       bite_ftell(bite_file_t* file);
-void         bite_fseek(bite_file_t* file, size_t pos, int whence);
+int          bite_fseek(bite_file_t* file, long int pos, int whence);
 void         bite_fclose(bite_file_t* file);
 
 // -------------
@@ -226,6 +227,105 @@ void bite_packed_close(bite_packed_t* packed) {
     free(packed);
 }
 
+// Finds the first entry that matches with the given filepath.
+// Returns null if no entry was found.
+static bite_entry_t* bite__packed_find_entry(bite_packed_t* packed, const char* filepath) {
+    bite_entry_t* entry;
+
+    for (size_t i = 0; i < packed->table.file.count; i++) {
+        entry = packed->table.file.entries + i;
+        if (strcmp(entry->name, filepath) == 0) {
+            return entry;
+        }
+    }
+
+    return NULL;
+}
+
+static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite_entry_t* entry_ref) {
+    bite_file_t* file = (bite_file_t*)malloc(sizeof(*file));
+    memset(file, 0, sizeof(*file));
+
+    file->packed_ref = packed_ref;
+    file->entry_ref = entry_ref;
+    file->pos = 0;
+
+    return file;
+}
+
+bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
+    bite_entry_t* entry = bite__packed_find_entry(packed, filepath);
+    if (!entry) {
+        return NULL;
+    }
+
+    bite_file_t* file = bite__file_open_entry(packed, entry);
+    return file;
+}
+
+void bite_fclose(bite_file_t* file) {
+    if (!file) return;
+    free(file);
+}
+
+size_t bite_fsize(bite_file_t* file) {
+    return file->entry_ref->data_size;
+}
+
+size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
+    bite_entry_t* entry = file->entry_ref;
+    
+    // Clamp cursor to size
+    if (file->pos > entry->data_size) {
+        file->pos = entry->data_size;
+    }
+
+    FILE* handle = file->packed_ref->handle;
+    fseek(handle, entry->data_offset + file->pos, SEEK_SET);
+
+    // Limit reading size
+    if (file->pos + size >= entry->data_size) {
+        size = entry->data_size - file->pos;
+    }
+
+    file->pos += size;
+    if (size != 0) {
+        size_t count = fread(dst, size, 1, handle);
+        return count * size;
+    }
+
+    return size;
+}
+
+size_t bite_ftell(bite_file_t* file) {
+    return file->pos;
+}
+
+int bite_fseek(bite_file_t* file, long int offset, int whence) {
+    size_t pos = 0;
+
+    switch (whence) {
+        case SEEK_SET:
+            pos = offset;
+            break;
+
+        case SEEK_CUR:
+            pos = file->pos + offset;
+            break;
+
+        case SEEK_END:
+            pos = file->entry_ref->data_size - offset;
+            break;
+    }
+
+    if (pos > file->entry_ref->data_size) {
+        return -1;
+    }
+
+    file->pos = pos;
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     char* bite_filepath = "data.bite";
     if (argc > 1) {
@@ -241,6 +341,48 @@ int main(int argc, char* argv[]) {
     for (size_t i = 0; i < packed->table.file.count; i++) {
         bite_entry_t* entry = packed->table.file.entries + i;
         printf("FILE: %s\n", entry->name);
+    }
+
+    // Open text file and print its content.
+    bite_file_t* file = bite_fopen(packed, "assets/hello.txt");
+    if (file) {
+        printf("Found file '%s'!\n", file->entry_ref->name);
+
+        // Get size using the Bite way.
+        size_t len = bite_fsize(file);
+
+        if (len > 0) {
+            char* buffer = malloc(len+1);
+            len = bite_fread(buffer, len, file);
+            buffer[len] = '\0';
+            printf("Read %ld bytes\n%s\n", len, buffer);
+
+        }
+
+        bite_fclose(file);
+    }
+
+    // Open the other text file and print its content.
+    file = bite_fopen(packed, "assets/other.txt");
+    if (file) {
+        printf("Found file '%s'!\n", file->entry_ref->name);
+
+        // Get size using the std way.
+        int status = bite_fseek(file, 0, SEEK_END);
+        assert(status == 0);
+        size_t len = bite_ftell(file);
+        status = bite_fseek(file, 0, SEEK_SET);
+        assert(status == 0);
+
+        if (len > 0) {
+            char* buffer = malloc(len+1);
+            len = bite_fread(buffer, len, file);
+            buffer[len] = '\0';
+            printf("Read %ld bytes\n%s\n", len, buffer);
+
+        }
+
+        bite_fclose(file);
     }
 
     bite_packed_close(packed);
