@@ -4,7 +4,7 @@ ASSETS_DIR := assets
 ASSETS := $(shell find $(ASSETS_DIR) -type f)
 
 PY := python3
-SCRIPT := wadlike.py
+SCRIPT := tools/bite_packer.py
 
 RM := rm -rf
 
