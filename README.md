@@ -62,18 +62,28 @@ As you can see, the program opens the Bite packed `data.bite` that contains a
 file called `my_super_cool_file.txt`. It then reads the first 64 bytes of
 this file into a buffer.
 
-## Packing Bite archives
+## Packing/Unpacking Bite archives
 
-Inside of `tools/`, you can find a set of Python CLI scripts:
+Inside of `tools/`, you'll find a set of useful Python CLI scripts:
 
-- **bite_packer.py**: Used for creating bite archives.
-  - USAGE: `python3 bite_packer.py [path_to_files] -o <output>`
+- **bite_packer.py**: Used for **creating** bite archives.
+  - USAGE: `python3 bite_packer.py [path_to_files...] -o <output>`
+
+- **bite_unpacker.py**: Used for **extracting** bite archives.
+  - USAGE: `python3 bite_unpacker.py <input> -e [path_to_destination]`
+
+> These scripts were primarily designed for integration with automated
+> build systems. Manual usage is possible, but it quickly turns into
+> a very cumbersome endeavor, as each file path must be specified
+> explicitly when packing.
 
 ## To-do
 
-These are some of the missing features that I would like to implement/do in the future:
+These are some of the missing features that I would like to implement/do in
+the future:
 
 - Per-file compression.
 - Ability to specify callback functions for `bite_packed_open()`.
 - Ability to list all files/dirs in a directory (like dirent.h, perhaps?)
 - Better file searching algorithm.
+- CRC Checksum system?
