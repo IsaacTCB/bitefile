@@ -1,5 +1,5 @@
 """
-Wad-like file packer
+Bite file packer
 """
 
 import argparse
