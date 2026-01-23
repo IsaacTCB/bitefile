@@ -26,7 +26,8 @@ typedef struct {
     uint32_t data_offset; // Is 0 for empty files
     uint32_t data_size;
     uint32_t reserved;
-    char*    name;
+    size_t   name_pool_offset;
+    size_t   name_length;
 } bite__entry_t;
 
 typedef struct {
@@ -34,11 +35,11 @@ typedef struct {
         bite__entry_t* entries;
         size_t count;
     } file;
-    // struct {
-    //     char* ptr;
-    //     size_t size;
-    //     size_t capacity;
-    // } pool;
+    struct {
+        char* ptr;
+        size_t size;
+        size_t capacity;
+    } pool;
 } bite__table_t;
 
 struct bite_packed {
@@ -83,26 +84,6 @@ static bite_status_e bite__entry_read(bite__entry_t* entry, FILE* file) {
     BITE_IMPL_READ(&(entry->data_size), file);
     BITE_IMPL_READ(&(entry->reserved), file);
 
-    // Stored strings are variable length.
-    // First comes length (2 bytes), then afterwards
-    // is a continuous ASCII/UTF-8 string (not null-terminated)
-    uint16_t name_length;
-    BITE_IMPL_READ(&name_length, file);
-
-    // @todo: use memory arena for storing strings.
-    char* name = (char*)malloc(name_length+1);
-
-    do {
-        int status = bite__fread(name, name_length, file);
-        if (!status) {
-            free(name); // Memory arenas would fix this
-            return BITE_ERR_MALFORMED;
-        }
-    } while (0);
-
-    name[name_length] = '\0';
-    entry->name = name;
-
     return BITE_OK;
 }
 
@@ -119,6 +100,11 @@ static bite_status_e bite__table_read(bite__table_t* table, bite__header_t* head
     if (!table->file.entries) return BITE_ERR_INVALID;
 
     table->file.count = file_count;
+
+    table->pool.capacity = 64 * file_count; // 64 bytes per file is a safe bet.
+    table->pool.ptr = (char*)malloc(table->pool.capacity);
+    if (!table->pool.ptr) return BITE_ERR_INVALID;
+    table->pool.size = 0;
     
     // Skip to file entry offset
     long old_pos = ftell(file);
@@ -131,8 +117,50 @@ static bite_status_e bite__table_read(bite__table_t* table, bite__header_t* head
         bite__entry_t* entry = table->file.entries + i;
         status = bite__entry_read(entry, file);
 
+        // Stored strings are variable length.
+        // First comes length (2 bytes), then afterwards
+        // is a continuous ASCII/UTF-8 string (not null-terminated)
+
+        // load name
+        entry->name_pool_offset = table->pool.size;
+        entry->name_length = 0;
+
+        do {
+            uint16_t length;
+            int success = bite__fread(&length, sizeof(length), file);
+            if (success) entry->name_length = length;
+        } while (0);
+
+        if (entry->name_length == 0) {
+            bite__table_close(table);
+            return BITE_ERR_INVALID;
+        }
+
+        size_t name_size = entry->name_length + 1;
+        if (entry->name_pool_offset + name_size >= table->pool.capacity) {
+
+            // Increase pool capacity if not enough
+            do {
+                table->pool.capacity *= 2;
+            } while (
+                entry->name_pool_offset + name_size >= table->pool.capacity
+            );
+
+            void* new_ptr = realloc(table->pool.ptr, table->pool.capacity);
+            if (new_ptr) {
+                table->pool.ptr = (char*)new_ptr;
+            } else {
+                bite__table_close(table);
+                return BITE_ERR_INVALID;
+            }
+            //printf("reallocated %zu bytes for name pool\n", table->pool.capacity);
+        }
+
+        bite__fread(&table->pool.ptr[entry->name_pool_offset], entry->name_length, file);
+        table->pool.ptr[entry->name_pool_offset + entry->name_length] = '\0';
+        table->pool.size += name_size;
+
         if (status != BITE_OK) {
-            table->file.count = i; // hacky, but works
             bite__table_close(table);
             return status;
         }
@@ -144,16 +172,17 @@ static bite_status_e bite__table_read(bite__table_t* table, bite__header_t* head
 
 static void bite__table_close(bite__table_t* table) {
     if (table->file.entries) {
-        for (size_t i = 0; i < table->file.count; i++) {
-            bite__entry_t* entry = table->file.entries + i;
-            free(entry->name); // This is annoying. Perhaps a memory arena would be more fitting?
-        }
-
         free(table->file.entries);
         table->file.entries = NULL;
     }
-
     table->file.count = 0;
+
+    if (table->pool.ptr) {
+        free(table->pool.ptr);
+        table->pool.ptr = NULL;
+    }
+    table->pool.size = 0;
+    table->pool.capacity = 0;
 }
 
 bite_packed_t* bite_packed_open(const char* filepath) {
@@ -202,7 +231,11 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
 
     for (size_t i = 0; i < packed->table.file.count; i++) {
         entry = packed->table.file.entries + i;
-        if (strcmp(entry->name, filepath) == 0) {
+
+        char* ptr = packed->table.pool.ptr;
+        ptr += entry->name_pool_offset;
+
+        if (strcmp(ptr, filepath) == 0) {
             return entry;
         }
     }
@@ -233,7 +266,9 @@ bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
 }
 
 const char* bite_fname(bite_file_t* file) {
-    return file->entry_ref->name;
+    char* ptr = file->packed_ref->table.pool.ptr;
+    ptr += file->entry_ref->name_pool_offset;
+    return ptr;
 }
 
 void bite_fclose(bite_file_t* file) {

@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
             len = bite_fread(buffer, len, file);
             buffer[len] = '\0';
             printf("Read %ld bytes\n%s\n", len, buffer);
-
+            free(buffer);
         }
 
         bite_fclose(file);
@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
             len = bite_fread(buffer, len, file);
             buffer[len] = '\0';
             printf("Read %ld bytes\n%s\n", len, buffer);
-
+            free(buffer);
         }
 
         bite_fclose(file);
