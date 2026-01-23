@@ -134,7 +134,6 @@ def build_parser():
         "input",
         help="select Bite for extraction.",
         type=str,
-        nargs=1,
         metavar="bite"
     )
     parser.add_argument(
