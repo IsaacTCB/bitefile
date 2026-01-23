@@ -58,7 +58,7 @@ void load_data_from_bite() {
 }
 ```
 
-As you can see, the program opens the Bite packed `data.bite` containing a
+As you can see, the program opens the Bite packed `data.bite` that contains a
 file called `my_super_cool_file.txt`. It then reads the first 64 bytes of
 this file into a buffer.
 
@@ -71,7 +71,7 @@ Inside of `tools/`, you can find a set of Python CLI scripts:
 
 ## To-do
 
-These are some missing features that I would like to implement/do in the future:
+These are some of the missing features that I would like to implement/do in the future:
 
 - Per-file compression.
 - Ability to specify callback functions for `bite_packed_open()`.
