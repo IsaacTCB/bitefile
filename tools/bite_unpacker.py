@@ -60,7 +60,7 @@ def read_struct(fmt, file):
 def read_string(file):
     """Reads a string from the bite file."""
 
-    length = read_struct("<H", file)
+    length = read_struct("<B", file)
 
     bytedata = file.read(length)
     string = bytedata.decode('utf-8')
@@ -76,14 +76,18 @@ def read_header(bite):
         raise Exception("File is not a Bite file!")
 
     version = read_struct("<H", bite)
-    file_table_offset = read_struct("<I", bite)
+    read_struct("<H", bite)  # Skip reserved
+    file_table_offset = read_struct("<Q", bite)
     file_table_count = read_struct("<I", bite)
+    file_data_offset = read_struct("<Q", bite)
+    read_struct("<I", bite)  # Skip reserved
 
     return {
         "magic": magic,
         "version": version,
         "file_table_offset": file_table_offset,
         "file_table_count": file_table_count,
+        "file_data_offset": file_data_offset,
     }
 
 
@@ -91,8 +95,8 @@ def read_file_entry(bite):
     """Read and parse a single file entry. This is used by
     read_file_table()."""
 
-    offset = read_struct("<I", bite)
-    size = read_struct("<I", bite)
+    offset = read_struct("<Q", bite)
+    size = read_struct("<Q", bite)
     read_struct("<I", bite)  # Skip reserved
     name = read_string(bite)
 
@@ -159,9 +163,9 @@ def main():
     except FileNotFoundError:
         print(f"Unable to open \"{args.input}\"")
         exit(2)
-    except Exception as exception:
-        print(exception)
-        exit(3)
+    # except Exception as exception:
+    #     print(exception)
+    #     exit(3)
 
 
 if __name__ == "__main__":
