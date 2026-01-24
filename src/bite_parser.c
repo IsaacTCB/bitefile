@@ -315,7 +315,7 @@ size_t bite_ftell(bite_file_t* file) {
     return file->pos;
 }
 
-int bite_fseek(bite_file_t* file, long int offset, int whence) {
+int bite_fseek(bite_file_t* file, long offset, int whence) {
     size_t pos = 0;
 
     switch (whence) {
@@ -328,8 +328,11 @@ int bite_fseek(bite_file_t* file, long int offset, int whence) {
             break;
 
         case SEEK_END:
-            pos = file->entry_ref->data_size - offset;
+            pos = file->entry_ref->data_size + offset;
             break;
+
+        default:
+            return -1;
     }
 
     if (pos > file->entry_ref->data_size) {
