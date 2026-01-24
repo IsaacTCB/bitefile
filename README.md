@@ -88,8 +88,9 @@ Inside of `tools/`, you'll find a set of useful Python CLI scripts:
 These are some of the missing features that I would like to implement/do in
 the future:
 
-- Per-file compression.
 - Ability to specify callback functions for `bite_packed_open()`.
-- Ability to list all files/dirs in a directory (like dirent.h, perhaps?)
+- API for listing all files/dirs in a directory (like dirent.h, perhaps?)
+- Allow interaction with multiple packed files using a single packed_file_t* handle.
+- Per-file compression.
 - Better file searching algorithm.
 - CRC Checksum system?
