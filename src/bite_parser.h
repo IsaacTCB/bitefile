@@ -11,8 +11,8 @@ typedef enum {
     BITE_ERR_MALFORMED,    // Malformed file format
 } bite_status_e;
 
-typedef struct bite_packed bite_packed_t;
-typedef struct bite_file bite_file_t;
+typedef struct bite_packed bite_packed_t; // Bite packed archive handle
+typedef struct bite_file bite_file_t;     // Virtual file handle
 
 // Bite-packed open/close
 bite_packed_t* bite_packed_open(const char* filepath);   // Opens a bite-packed file.

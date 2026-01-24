@@ -44,12 +44,14 @@ typedef struct {
     } pool;
 } bite__table_t;
 
+// Bite packed archive handle
 struct bite_packed {
     FILE* handle;
     bite__header_t header;
     bite__table_t table;
 };
 
+// Virtual file handle
 struct bite_file {
     bite_packed_t* packed_ref; // Weak ref, packed is responsible for closing itself
     bite__entry_t* entry_ref; // Same as above
@@ -189,6 +191,7 @@ static void bite__table_close(bite__table_t* table) {
     table->pool.capacity = 0;
 }
 
+// Open a bite packed archive using the filepath
 bite_packed_t* bite_packed_open(const char* filepath) {
     bite_packed_t* packed = NULL;
 
@@ -222,6 +225,7 @@ bite_packed_t* bite_packed_open(const char* filepath) {
     return packed;
 }
 
+// Closes a bite packed archive handle.
 void bite_packed_close(bite_packed_t* packed) {
     fclose(packed->handle);
     bite__table_close(&packed->table);
@@ -259,6 +263,7 @@ static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry
     return file;
 }
 
+// Finds and opens a virtual file inside of the packed file
 bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
     bite__entry_t* entry = bite__packed_find_entry(packed, filepath);
     if (!entry) {
@@ -269,21 +274,25 @@ bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
     return file;
 }
 
+// Returns the filepath of the virtual file
 const char* bite_fname(bite_file_t* file) {
     char* ptr = file->packed_ref->table.pool.ptr;
     ptr += file->entry_ref->name_pool_offset;
     return ptr;
 }
 
+// Closes a virtual file.
 void bite_fclose(bite_file_t* file) {
     if (!file) return;
     free(file);
 }
 
+// Returns the total file size of the virtual file
 size_t bite_fsize(bite_file_t* file) {
     return file->entry_ref->data_size;
 }
 
+// Reads size of data into the destination buffer from the virtual file
 size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
     bite__entry_t* entry = file->entry_ref;
     
@@ -311,10 +320,12 @@ size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
     return size;
 }
 
+// Returns the virtual file's current cursor position
 size_t bite_ftell(bite_file_t* file) {
     return file->pos;
 }
 
+// Seeks into a specific point depending on a whence
 int bite_fseek(bite_file_t* file, long offset, int whence) {
     size_t pos = 0;
 
