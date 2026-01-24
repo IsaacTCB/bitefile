@@ -322,15 +322,12 @@ int bite_fseek(bite_file_t* file, long offset, int whence) {
         case SEEK_SET:
             pos = offset;
             break;
-
         case SEEK_CUR:
             pos = file->pos + offset;
             break;
-
         case SEEK_END:
             pos = file->entry_ref->data_size + offset;
             break;
-
         default:
             return -1;
     }
