@@ -57,7 +57,7 @@ struct bite_file {
 };
 
 // Raw usage of this function should be avoided unless strictly needed;
-// Use BITE_IMPL_READ wrapper instead, as that is safer and a whole lot cleaner.
+// Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
 static int bite__fread(void* out_ptr, size_t size, FILE* file) {
     return fread(out_ptr, size, 1, file) == 1;
 }
