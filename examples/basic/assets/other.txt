@@ -1,2 +1,1 @@
-This is another file! This will be bundled into the same wad-like file.
-s
+This is another file! This will be bundled into the same Bite file.
