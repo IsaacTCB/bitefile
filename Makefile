@@ -11,7 +11,7 @@ RM := rm -rf
 .PHONY: clean
 
 $(TARGET): $(SCRIPT) $(ASSETS)
-	$(PY) $(SCRIPT) $(ASSETS) -o $(TARGET)
+	$(PY) $(SCRIPT) $(ASSETS) -v -o $(TARGET)
 
 clean:
 	$(RM) $(TARGET)

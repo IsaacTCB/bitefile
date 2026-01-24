@@ -4,102 +4,210 @@ Bite file packer
 
 import argparse
 import struct
+import os
 from pathlib import Path
+
+
+def pack_bite(bite, paths: list[Path]):
+    write_header(bite)  # Write a placeholder bite header
+
+    file_table_entries = pack_all_files(bite, paths)
+
+    # Find data offset position
+    file_data_offset = 0
+    if len(file_table_entries) > 0:
+        file_data_offset = file_table_entries[0]["file_offset"]
+
+    write_padding(bite)  # Padding bc CPU likes its aligned mem
+
+    file_table_offset = bite.tell()
+    write_file_table(bite, file_table_entries)
+
+    # Patch bite header w/ new info
+    write_header(
+        bite,
+        opts={
+            "file_table_offset": file_table_offset,
+            "file_table_count": len(file_table_entries),
+            "file_data_offset": file_data_offset,
+        }
+    )
 
 
 # ==========================
 # Core
 # ==========================
 
-def process_file(in_path: Path):
-    """Opens a file and returns its data to be stored."""
-
-    file = open(in_path.as_posix(), "rb")
-    bytes = file.read()
-    return bytes
-
 
 def write_header(
-        out_file,
-        header_version=1,
-        file_entries_offset=0,
-        file_entries_count=0,
-        file_data_start_offset=0
+    bite,
+    header_version=1,
+    opts: dict = {
+        "file_table_offset": 0,
+        "file_table_count": 0,
+        "file_data_offset": 0,
+    },
 ):
     """Writes the bite header into the output file.
     When called without any arguments (except for the file handle),
     it will print a stub header.
     """
 
-    # magic (4 bytes, ascii)
+    bite.seek(0, os.SEEK_SET)
+
+    # Magic (4 bytes, ascii)
     magic = b"BITE"
-    out_file.write(magic)
+    bite.write(magic)
 
-    # version (2 bytes)
-    write_struct(out_file, "<H", header_version)
+    # Version (2 bytes)
+    write_struct(bite, "<H", header_version)
 
-    # reserved (2 bytes)
-    write_struct(out_file, "<H", 0)
+    # Reserved (2 bytes)
+    write_struct(bite, "<H", 0)
 
-    # file table offset & entry count (8+4 bytes)
-    write_struct(out_file, "<QI", file_entries_offset, file_entries_count)
+    # File table offset
+    write_struct(bite, "<Q", opts["file_table_offset"])
 
-    # file data start offset (8 bytes)
-    write_struct(out_file, "<Q", file_data_start_offset)
+    # File entry count (4 bytes)
+    write_struct(bite, "<I", opts["file_table_count"])
 
-    # reserved (4 bytes)
-    write_struct(out_file, "<I", 0)
+    # File data start offset (8 bytes)
+    write_struct(bite, "<Q", opts["file_data_offset"])
+
+    # Reserved (4 bytes)
+    write_struct(bite, "<I", 0)
 
 
-def write_struct(
-        out_file,
-        fmt: str,
-        *values
-):
+def pack_all_files(bite, input_paths):
+    """Pack all files into the bite, returns a list of file
+    table entries"""
+
+    file_table_entries = []
+
+    for filepath in input_paths:
+        write_padding(bite)  # Align file
+
+        try:
+            entry = pack_file(bite, filepath)
+            file_table_entries.append(entry)
+            _print(f"Packed \"{filepath}\"")
+        except FileNotFoundError:
+            _print(f"Unable to open \"{filepath}\"")
+
+    return file_table_entries
+
+
+def write_file_table(bite, file_table_entries: list):
+    """Writes the file metadata table, containing offsets, sizes and more"""
+
+    for file_entry in file_table_entries:
+        # Write offset (4 bytes)
+        write_struct(bite, "<Q", file_entry["file_offset"])
+
+        # Data size (8 bytes)
+        write_struct(bite, "<Q", file_entry["file_size"])
+
+        # Reserved data (4 bytes)
+        write_struct(bite, "<I", 0)
+
+        # Filename (1 byte + N bytes)
+        write_string(bite, str(file_entry["file_path"]))
+
+
+def pack_file(bite, input_path: Path):
+    """Opens a file and appends its data onto the bite file"""
+
+    file_offset = bite.tell()
+    total_size = 0
+
+    with open(input_path, "rb") as file:
+        data = process_file(file)
+        bite.write(data)
+        total_size = len(data)
+
+    return {
+        "file_path": input_path,
+        "file_offset": file_offset,
+        "file_size": total_size,
+    }
+
+
+def process_file(file):
+    """Processes a file and returns the data to be stored."""
+
+    bytes = file.read()
+    return bytes
+
+
+# ==========================
+# Helpers
+# ==========================
+
+def write_struct(bite, fmt: str, *values):
     """Writes a struct template to output file"""
 
     if ">" not in fmt and "<" not in fmt:
         fmt = "<" + fmt  # Ensure little endian
 
-    out_file.write(
+    bite.write(
         struct.pack(fmt, *values)
     )
 
 
-def write_padding(
-        out_file,
-        alignment=16,
-):
+def write_padding(bite, alignment=16):
     """Writes empty padding until the file cursor is on a block alignment"""
 
-    pad = alignment - (out_file.tell() % alignment)
+    pad = alignment - (bite.tell() % alignment)
     pad = pad % alignment
     for i in range(pad):
-        write_struct(out_file, "b", 0)
+        write_struct(bite, "b", 0)
+
+
+def write_string(bite, string: str):
+    encoded = string.encode('utf-8')
+    write_struct(bite, "<B", len(encoded))
+    bite.write(encoded)
 
 
 def parser_build():
     """Builds an argparse object containing all relevant cli data"""
 
     parser = argparse.ArgumentParser(
-        prog="wadlike",
+        prog="bite_packer",
         description="Packs multiple files into one monolith wad-like file.",
     )
     parser.add_argument(
         "input",
+        help="list of files to be packed",
+        metavar="files",
         action="extend",
+        type=str,
         nargs="+",
         default=[],
     )
-    parser.add_argument(
-        "-a", "--alignment",
-        default=16,
-    )
+    # parser.add_argument(
+    #     "-a", "--alignment",
+    #     type=int,
+    #     default=16,
+    # )
     parser.add_argument(
         "-o", "--output",
+        help="specify target filename",
+        type=str,
         required=True
     )
+    parser.add_argument(
+        "-v", "--verbose",
+        help="display extra messages",
+        action="store_true"
+    )
     return parser
+
+
+def _print(*args):
+    """Only prints message if VERBOSE is True"""
+    if VERBOSE:
+        print(*args)
 
 
 # ==========================
@@ -113,74 +221,25 @@ def main():
     parser = parser_build()
     args = parser.parse_args()
 
+    # This is ugly, but it works.
+    global VERBOSE
+    VERBOSE = args.verbose
+
     # Ensure .bite extension for final name
-    # "file" -> "file.bite"
-    # "file.bite" -> "file.bite"
-    out_path: str = args.output
-    out_path = out_path.removesuffix(".bite") + ".bite"
+    bite_path = Path(args.output).with_suffix(".bite")
 
-    with open(out_path, "wb") as out:
-        file_metadata_offset = 0
-        file_metadata_entries = []
+    # Convert strings to paths, remove dirs & duplicates
+    input_paths = [Path(path) for path in args.input]
+    input_paths = [path for path in input_paths if path.is_file()]
+    input_paths = list(set(input_paths))
 
-        write_header(out)  # Write stub header
+    if len(input_paths) == 0:
+        print("No files to pack!")
+        exit(2)
 
-        for in_path in args.input:
-            write_padding(out, args.alignment)
-
-            data_offset = out.tell()
-            data_size = 0
-
-            data = process_file(Path(in_path))
-            data_size = len(data)
-
-            if data_size > 0:
-                out.write(data)
-            else:
-                # File is empty, there's no allocated data
-                data_offset = 0
-
-            entry = {
-                "name":   Path(in_path).as_posix(),
-                "offset": data_offset,
-                "size":   data_size,
-            }
-
-            print(entry)
-            file_metadata_entries.append(entry)
-
-        # File metadata table
-        write_padding(out, args.alignment)
-        file_metadata_offset = out.tell()
-        for file_entry in file_metadata_entries:
-            # file_data_pos = file_entry["offset"]
-
-            # Write offset + data size (8 bytes + 8 bytes)
-            write_struct(out, "<Q", file_entry["offset"])
-            write_struct(out, "<Q", file_entry["size"])
-
-            # Reserved data (4 bytes)
-            write_struct(out, "<I", 0)
-
-            # Filename length + data (1 byte + N bytes)
-            encoded_name = file_entry["name"].encode('utf-8')
-            write_struct(out, "<B", len(encoded_name))
-            out.write(encoded_name)
-
-        # Update header w/ new info
-        data_start_offset = 0
-        if len(file_metadata_entries) > 0:
-            data_start_offset = file_metadata_entries[0]["offset"]
-        else:
-            data_start_offset = file_metadata_offset
-
-        out.seek(0, 0)
-        write_header(
-            out,
-            file_entries_count=len(file_metadata_entries),
-            file_entries_offset=file_metadata_offset,
-            file_data_start_offset=data_start_offset,
-        )
+    with open(bite_path, "wb") as bite:
+        pack_bite(bite, input_paths)
+        _print(f"Packed all files into \"{bite_path}\" successfully!")
 
 
 if __name__ == "__main__":
