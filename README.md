@@ -8,6 +8,9 @@
 *bitefile* is a small C library for reading files from Bite packed archives,
 providing a simple stdio-like interface.
 
+This is a project that I developed for fun, so it shouldn't be treated as
+a serious and reliable way of reading and storing data.
+
 ## What are Bite files?
 
 Bite is a data archive format I created for storing multiple files of any
@@ -16,6 +19,9 @@ type into one large `.bite` file, akin to
 [Godot's PCK format](https://github.com/godotengine/godot/blob/master/core/io/pck_packer.cpp).
 In fact, the latter turned out to be a great source of information for
 Bite's specification design.
+
+Bite internally stores data offset and sizes using 64-bit values, so
+it can store files up to 16 EiB (in theory).
 
 That being said, Bite isn't anything too fancy, really. It contains a basic
 header and a file metadata table that points into the uncompressed raw
