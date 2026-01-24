@@ -17,14 +17,16 @@
 typedef struct {
     uint32_t magic; // BITE, in ASCII
     uint16_t version;
-    uint32_t file_entry_offset;
+    uint16_t reserved_1;
+    uint64_t file_entry_offset;
     uint32_t file_entry_count;
-    uint16_t reserved;
+    uint64_t file_data_start_offset;
+    uint32_t reserved_2;
 } bite__header_t;
 
 typedef struct {
-    uint32_t data_offset; // Is 0 for empty files
-    uint32_t data_size;
+    uint64_t data_offset; // Is 0 for empty files
+    uint64_t data_size;
     uint32_t reserved;
     size_t   name_pool_offset;
     size_t   name_length;
@@ -72,9 +74,11 @@ static bite_status_e bite__header_read(bite__header_t* header, FILE* file) {
         return BITE_ERR_INCOMPATIBLE;
     }
 
+    BITE_IMPL_READ(&(header->reserved_1), file);
     BITE_IMPL_READ(&(header->file_entry_offset), file);
     BITE_IMPL_READ(&(header->file_entry_count), file);
-    BITE_IMPL_READ(&(header->reserved), file);
+    BITE_IMPL_READ(&(header->file_data_start_offset), file);
+    BITE_IMPL_READ(&(header->reserved_2), file);
 
     return BITE_OK;
 }
@@ -126,7 +130,7 @@ static bite_status_e bite__table_read(bite__table_t* table, bite__header_t* head
         entry->name_length = 0;
 
         do {
-            uint16_t length;
+            uint8_t length;
             int success = bite__fread(&length, sizeof(length), file);
             if (success) entry->name_length = length;
         } while (0);
