@@ -9,19 +9,22 @@
 providing a simple stdio-like interface.
 
 This is a project that I developed for fun, so it shouldn't be treated as
-a serious and reliable way of reading and storing data.
+a serious and professional-grade way of reading and storing data.
 
 ## What are Bite files?
 
 Bite is a data archive format I created for storing multiple files of any
 type into one large `.bite` file, akin to
 [Doom's WAD files](https://doomwiki.org/wiki/WAD) and
-[Godot's PCK format](https://github.com/godotengine/godot/blob/master/core/io/pck_packer.cpp).
-In fact, the latter turned out to be a great source of information for
-Bite's specification design.
+[Godot's PCK format](https://github.com/godotengine/godot/blob/master/core/io/pck_packer.cpp). In fact, the latter was a largely useful reference for the implementation.
 
-Bite internally stores data offset and sizes using 64-bit values, so
-it can store files up to 16 EiB (in theory).
+It was designed as a way to store/load assets for game engines, where
+high file load and process speeds are crucial, so no compression algorithms
+have been employed (although I'm open to the idea of implementing an opt-in
+per-file compression solution).
+
+Bite internally stores data offset and sizes using 64-bit values, meaning
+that can store files up to 16 EiB (in theory).
 
 That being said, Bite isn't anything too fancy, really. It contains a basic
 header and a file metadata table that points into the uncompressed raw
@@ -79,8 +82,8 @@ Inside of `tools/`, you'll find a set of useful Python CLI scripts:
   - USAGE: `python3 bite_unpacker.py <input> -e [path_to_destination]`
 
 > These scripts were primarily designed for integration with automated
-> build systems, though manual usage is also permitted. With `-h`, you
-> can view the list of all accepted actions and options.
+> build systems, though manual usage is also permitted. You can pass
+> `-h` to view the list of all accepted actions and options.
 
 ## To-do
 
