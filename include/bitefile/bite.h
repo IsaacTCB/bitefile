@@ -53,6 +53,9 @@ BITE_API size_t       bite_ftell(bite_file_t* file);
 BITE_API int          bite_fseek(bite_file_t* file, long int pos, int whence);
 BITE_API void         bite_fclose(bite_file_t* file);
 
+// Error handling
+BITE_API const char* bite_error_str();
+
 #if defined(__cplusplus)
 }
 #endif

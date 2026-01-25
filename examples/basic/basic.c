@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
 
     bite_packed_t* packed = bite_packed_open(bite_filepath);
     if (!packed) {
-        printf("Unable to open packed \"%s\"", bite_filepath);
+        printf("Error: %s\n", bite_error_str());
         exit(3);
     }
 
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 
         bite_fclose(file);
     } else {
-        printf("File '%s' was not found inside archive!", filepath);
+        printf("Error: %s\n", bite_error_str());
     }
 
     // Open the other text file and print its content.
@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
 
         bite_fclose(file);
     } else {
-        printf("File '%s' was not found inside archive!", filepath);
+        printf("Error: %s\n", bite_error_str());
     }
 
     bite_packed_close(packed);
