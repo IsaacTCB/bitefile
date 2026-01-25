@@ -2,7 +2,12 @@ project(examples)
 
 set(example_dirs
     basic
+    utf8
 )
+
+set(working_dir ${CMAKE_CURRENT_BINARY_DIR})
+set(pack_dir "${working_dir}/assets")
+set(pack_output "${working_dir}/data.bite")
 
 set(example_assets)
 foreach(example_dir ${example_dirs})
@@ -10,8 +15,7 @@ foreach(example_dir ${example_dirs})
     file(GLOB sources ${example_dir}/*.c)
 
     # Store all filepaths from the assets folder.
-    file(GLOB_RECURSE assets ${example_dir}/assets/*)
-    list(APPEND example_assets ${assets})
+    file(COPY ${example_dir}/assets/ DESTINATION ${pack_dir})
 
     add_executable(${example_dir} ${sources})
     target_link_libraries(${example_name} PRIVATE bitefile)
@@ -24,15 +28,11 @@ endforeach()
 # Warning: this code's a mess, but it works so whatever
 find_package(Python QUIET COMPONENTS Interpreter)
 if(Python_FOUND)
-    set(working_dir ${CMAKE_CURRENT_BINARY_DIR})
-    set(pack_dir "${working_dir}/assets")
-    set(pack_output "${working_dir}/data.bite")
-
     # Copy assets to project folder for easier access
-    file(
-        COPY ${example_assets}
-        DESTINATION ${pack_dir}
-    )
+    # file(
+    #     COPY ${example_assets}
+    #     DESTINATION ${pack_dir}
+    # )
 
     # Command for generating the bitefile
     add_custom_command(

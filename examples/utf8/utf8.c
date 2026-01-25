@@ -17,39 +17,13 @@ int main(int argc, char* argv[]) {
     }
 
     // Open text file and print its content.
-    const char* filepath = "assets/basic/hello.txt";
+    const char* filepath = "assets/utf8/thïs_filénàme_hãs_special_chars";
     bite_file_t* file = bite_fopen(packed, filepath);
     if (file) {
         printf("Found file '%s'!\n", bite_fpath(file));
 
         // Get size using the Bite way.
         size_t len = bite_fsize(file);
-
-        if (len > 0) {
-            char* buffer = malloc(len+1);
-            len = bite_fread(buffer, len, file);
-            buffer[len] = '\0';
-            printf("Read %ld bytes\n%s\n", len, buffer);
-            free(buffer);
-        }
-
-        bite_fclose(file);
-    } else {
-        printf("File '%s' was not found inside archive!", filepath);
-    }
-
-    // Open the other text file and print its content.
-    filepath = "assets/basic/other.txt";
-    file = bite_fopen(packed, filepath);
-    if (file) {
-        printf("Found file '%s'!\n", bite_fpath(file));
-
-        // Get size using the std way.
-        int status = bite_fseek(file, 0, SEEK_END);
-        assert(status == 0);
-        size_t len = bite_ftell(file);
-        status = bite_fseek(file, 0, SEEK_SET);
-        assert(status == 0);
 
         if (len > 0) {
             char* buffer = malloc(len+1);

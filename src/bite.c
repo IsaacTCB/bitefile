@@ -107,7 +107,7 @@ static bite_status_e bite__table_read(bite__table_t* table, bite__header_t* head
 
     table->file.count = file_count;
 
-    table->pool.capacity = 64 * file_count; // 64 bytes per file is a safe bet.
+    table->pool.capacity = 32 * file_count; // Allocate 32 bytes per filepath to avoid possible realloc
     table->pool.ptr = (char*)malloc(table->pool.capacity);
     if (!table->pool.ptr) return BITE_ERR_INVALID;
     table->pool.size = 0;
@@ -275,7 +275,7 @@ bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
 }
 
 // Returns the filepath of the virtual file
-const char* bite_fname(bite_file_t* file) {
+const char* bite_fpath(bite_file_t* file) {
     char* ptr = file->packed_ref->table.pool.ptr;
     ptr += file->entry_ref->name_pool_offset;
     return ptr;

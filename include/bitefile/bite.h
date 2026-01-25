@@ -46,7 +46,7 @@ BITE_API void           bite_packed_close(bite_packed_t* packed); // Closes a bi
 
 // File operations
 BITE_API bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath);
-BITE_API const char*  bite_fname(bite_file_t* file);
+BITE_API const char*  bite_fpath(bite_file_t* file);
 BITE_API size_t       bite_fsize(bite_file_t* file);
 BITE_API size_t       bite_fread(void* dst, size_t size, bite_file_t* file);
 BITE_API size_t       bite_ftell(bite_file_t* file);
