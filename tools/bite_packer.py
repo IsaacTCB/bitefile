@@ -8,30 +8,42 @@ import os
 from pathlib import Path, PurePosixPath
 
 
+class FileTree:
+    def __init__(self):
+        self.dirs = {}
+        self.files = set()
+
+
 def pack_bite(bite, paths: list[Path]):
     write_header(bite)  # Write a placeholder bite header
 
-    file_table_entries = pack_all_files(bite, paths)
+    file_tree = build_file_tree(paths)
+    print_file_tree(file_tree)
+    table = pack_tree(bite, file_tree)
+    print(table)
+    exit(0)
 
-    # Find data offset position
-    file_data_offset = 0
-    if len(file_table_entries) > 0:
-        file_data_offset = file_table_entries[0]["file_offset"]
-
-    write_padding(bite)  # Padding bc CPU likes its aligned mem
-
-    file_table_offset = bite.tell()
-    write_file_table(bite, file_table_entries)
-
-    # Patch bite header w/ new info
-    write_header(
-        bite,
-        opts={
-            "file_table_offset": file_table_offset,
-            "file_table_count": len(file_table_entries),
-            "file_data_offset": file_data_offset,
-        }
-    )
+    # file_table_entries = pack_all_files(bite, file_tree)
+    #
+    # # Find data offset position
+    # file_data_offset = 0
+    # if len(file_table_entries) > 0:
+    #     file_data_offset = file_table_entries[0]["file_offset"]
+    #
+    # write_padding(bite)  # Padding bc CPU likes its aligned mem
+    #
+    # file_table_offset = bite.tell()
+    # write_file_table(bite, file_table_entries)
+    #
+    # # Patch bite header w/ new info
+    # write_header(
+    #     bite,
+    #     opts={
+    #         "file_table_offset": file_table_offset,
+    #         "file_table_count": len(file_table_entries),
+    #         "file_data_offset": file_data_offset,
+    #     }
+    # )
 
 
 # ==========================
@@ -78,7 +90,39 @@ def write_header(
     write_struct(bite, "<I", 0)
 
 
-def pack_all_files(bite, input_paths):
+def pack_tree(bite, root: FileTree, relative_path: Path = Path()):
+    table_entries = []
+
+    if relative_path != Path():
+        table_entries.append({
+            "type": "dir",
+            "name": relative_path.name,
+            "children": 0,
+            "sibling": 0,
+        })
+
+    children = 0
+    sibling = 0
+    for d in root.dirs:
+        entries = pack_tree(bite, root.dirs[d], relative_path / d)
+        sibling += 1 + entries[0]["sibling"]
+        table_entries += entries
+        children += 1
+
+    for f in root.files:
+        entry = pack_file(bite, relative_path / f)
+        table_entries.append((entry))
+        sibling += 1
+        children += 1
+
+    if relative_path != Path():
+        table_entries[0]["children"] = children
+        table_entries[0]["sibling"] = sibling
+
+    return table_entries
+
+
+def pack_all_files(bite, input_paths: list[Path]):
     """Pack all files into the bite, returns a list of file
     table entries"""
 
@@ -126,9 +170,10 @@ def pack_file(bite, input_path: Path):
         total_size = len(data)
 
     return {
-        "file_path": input_path.as_posix(),
-        "file_offset": file_offset,
-        "file_size": total_size,
+        "type": "file",
+        "name": input_path.name,
+        "offset": file_offset,
+        "size": total_size,
     }
 
 
@@ -251,11 +296,6 @@ def parse_input_paths(args):
             for sub_path in path.rglob('*'):
                 filtered_paths.append(sub_path)
 
-            # Remove any directories from list
-            filtered_paths = [
-                path for path in filtered_paths if path.is_file()
-            ]
-
         # Append normal files
         elif path.is_file():
             filtered_paths.append(path)
@@ -305,7 +345,8 @@ def print_file_tree(root: FileNode, indent: int = 0):
     tab = "   " * indent
 
     for d in root.dirs:
-        print_file_tree(root[d], indent+1)
+        print(tab + d)
+        print_file_tree(root.dirs[d], indent+1)
 
     for f in root.files:
         print(tab + f)
@@ -336,10 +377,6 @@ def main():
     except Exception as exception:
         print(exception)
         exit(2)
-
-    file_tree = build_file_tree(input_paths)
-    print_file_tree(file_tree)
-    exit(0)
 
     with open(bite_path, "wb") as bite:
         pack_bite(bite, input_paths)
