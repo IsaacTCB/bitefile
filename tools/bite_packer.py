@@ -111,7 +111,7 @@ def write_file_table(bite, file_table_entries: list):
         write_struct(bite, "<I", 0)
 
         # Filename (1 byte + N bytes)
-        write_string(bite, str(file_entry["file_path"]))
+        write_string(bite, file_entry["file_path"])
 
 
 def pack_file(bite, input_path: Path):
@@ -126,7 +126,7 @@ def pack_file(bite, input_path: Path):
         total_size = len(data)
 
     return {
-        "file_path": input_path,
+        "file_path": input_path.as_posix(),
         "file_offset": file_offset,
         "file_size": total_size,
     }
