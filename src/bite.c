@@ -1,4 +1,4 @@
-#include "bite_parser.h"
+#include <bitefile/bite.h>
 
 #include <stddef.h>
 #include <stdio.h>

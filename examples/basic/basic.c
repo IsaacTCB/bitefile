@@ -1,4 +1,4 @@
-#include "bite_parser.h"
+#include <bitefile/bite.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -14,12 +14,6 @@ int main(int argc, char* argv[]) {
     if (!packed) {
         exit(3);
     }
-
-    // Print filenames
-    // for (size_t i = 0; i < packed->table.file.count; i++) {
-    //     bite__entry_t* entry = packed->table.file.entries + i;
-    //     printf("FILE: %s\n", entry->name);
-    // }
 
     // Open text file and print its content.
     bite_file_t* file = bite_fopen(packed, "assets/hello.txt");
