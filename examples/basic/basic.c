@@ -9,14 +9,16 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
         bite_filepath = argv[1];
     }
-    
+
     bite_packed_t* packed = bite_packed_open(bite_filepath);
     if (!packed) {
+        printf("Unable to open packed \"%s\"", bite_filepath);
         exit(3);
     }
 
     // Open text file and print its content.
-    bite_file_t* file = bite_fopen(packed, "assets/hello.txt");
+    const char* filepath = "assets/hello.txt";
+    bite_file_t* file = bite_fopen(packed, filepath);
     if (file) {
         printf("Found file '%s'!\n", bite_fname(file));
 
@@ -32,10 +34,13 @@ int main(int argc, char* argv[]) {
         }
 
         bite_fclose(file);
+    } else {
+        printf("File '%s' was not found inside archive!", filepath);
     }
 
     // Open the other text file and print its content.
-    file = bite_fopen(packed, "assets/other.txt");
+    filepath = "assets/other.txt";
+    file = bite_fopen(packed, filepath);
     if (file) {
         printf("Found file '%s'!\n", bite_fname(file));
 
@@ -55,6 +60,8 @@ int main(int argc, char* argv[]) {
         }
 
         bite_fclose(file);
+    } else {
+        printf("File '%s' was not found inside archive!", filepath);
     }
 
     bite_packed_close(packed);

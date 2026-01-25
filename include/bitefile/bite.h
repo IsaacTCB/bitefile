@@ -1,6 +1,10 @@
 #ifndef BITE_IMPL_H
 #define BITE_IMPL_H
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -48,5 +52,9 @@ BITE_API size_t       bite_fread(void* dst, size_t size, bite_file_t* file);
 BITE_API size_t       bite_ftell(bite_file_t* file);
 BITE_API int          bite_fseek(bite_file_t* file, long int pos, int whence);
 BITE_API void         bite_fclose(bite_file_t* file);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif // BITE_IMPL_H

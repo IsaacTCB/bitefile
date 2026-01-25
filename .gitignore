@@ -1,7 +1,5 @@
-assets/*/
 build/
 
-data.bite
+.cache/
 
-bite_parser
-bite_parser.exe
+compile_commands.json
