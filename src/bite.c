@@ -17,6 +17,13 @@
 static char error_text_buffer[128];
 #define BITE_IMPL_ERR(...) (snprintf(error_text_buffer, sizeof(error_text_buffer), __VA_ARGS__))
 
+typedef enum {
+    BITE_OK = 0,
+    BITE_ERR_INVALID,      // Not a valid bite file!
+    BITE_ERR_INCOMPATIBLE, // Incompatible version
+    BITE_ERR_MALFORMED,    // Malformed file format
+} bite__status_e;
+
 typedef struct {
     uint32_t magic; // BITE, in ASCII
     uint16_t version;
@@ -67,7 +74,7 @@ static int bite__fread(void* out_ptr, size_t size, FILE* file) {
     return fread(out_ptr, size, 1, file) == 1;
 }
 
-static bite_status_e bite__header_read(bite__header_t* header, FILE* file) {
+static bite__status_e bite__header_read(bite__header_t* header, FILE* file) {
     BITE_IMPL_READ(&(header->magic), file);
     if (header->magic != BITE_FILE_MAGIC) {
         // printf("%d != %d", header->magic, BITE_FILE_MAGIC);
@@ -88,7 +95,7 @@ static bite_status_e bite__header_read(bite__header_t* header, FILE* file) {
     return BITE_OK;
 }
 
-static bite_status_e bite__entry_read(bite__entry_t* entry, FILE* file) {
+static bite__status_e bite__entry_read(bite__entry_t* entry, FILE* file) {
     BITE_IMPL_READ(&(entry->data_offset), file);
     BITE_IMPL_READ(&(entry->data_size), file);
     BITE_IMPL_READ(&(entry->reserved), file);
@@ -96,14 +103,14 @@ static bite_status_e bite__entry_read(bite__entry_t* entry, FILE* file) {
     return BITE_OK;
 }
 
-static bite_status_e bite__table_read(bite__table_t* table, bite__header_t* header, FILE* file);
+static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* header, FILE* file);
 static void          bite__table_close(bite__table_t* table);
 
 // Allocates data, so this must be freed using bite_table_close()!
-static bite_status_e bite__table_read(bite__table_t* table, bite__header_t* header, FILE* file) {
+static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* header, FILE* file) {
     size_t file_count = header->file_entry_count;
 
-    bite_status_e status;
+    bite__status_e status;
 
     table->file.entries = (bite__entry_t*)malloc(sizeof(bite__entry_t) * file_count);
     if (!table->file.entries) return BITE_ERR_INVALID;
@@ -118,7 +125,6 @@ static bite_status_e bite__table_read(bite__table_t* table, bite__header_t* head
     // Skip to file entry offset
     long old_pos = ftell(file);
     if (fseek(file, header->file_entry_offset, SEEK_SET) != 0) {
-        printf("Unable to seek to skip file entry table.\n");
         return BITE_ERR_MALFORMED;
     }
 
@@ -213,7 +219,7 @@ bite_packed_t* bite_packed_open(const char* filepath) {
 
     packed->handle = file;
 
-    bite_status_e status = bite__header_read(&packed->header, file);
+    bite__status_e status = bite__header_read(&packed->header, file);
     if (status != BITE_OK) {
         BITE_IMPL_ERR("Unable to parse header. Err: %d\n", status);
         fclose(file);
@@ -269,7 +275,6 @@ static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry
     file->packed_ref = packed_ref;
     file->entry_ref = entry_ref;
     file->pos = 0;
-
     return file;
 }
 

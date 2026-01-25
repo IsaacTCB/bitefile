@@ -30,13 +30,7 @@ extern "C" {
 #define BITE_API
 #endif
 
-typedef enum {
-    BITE_OK = 0,
-    BITE_ERR_INVALID,      // Not a valid bite file!
-    BITE_ERR_INCOMPATIBLE, // Incompatible version
-    BITE_ERR_MALFORMED,    // Malformed file format
-} bite_status_e;
-
+// Bite handles
 typedef struct bite_packed bite_packed_t; // Bite packed archive handle
 typedef struct bite_file bite_file_t;     // Virtual file handle
 
