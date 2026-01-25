@@ -14,14 +14,16 @@
             "inherits": "default",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
-            }
+            },
+            "binaryDir": "build/debug"
         },
         {
             "name": "release",
             "inherits": "default",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
-            }
+            },
+            "binaryDir": "build/release"
         }
     ],
     "buildPresets": [
