@@ -73,15 +73,14 @@ this file into a buffer.
 Inside of `tools/`, you'll find a set of useful Python CLI scripts:
 
 - **bite_packer.py**: Used for **creating** bite archives.
-  - USAGE: `python3 bite_packer.py [path_to_files...] -o <output>`
+  - USAGE: `python3 bite_packer.py -r <path_to_folder/files...> -o <output>`
 
 - **bite_unpacker.py**: Used for **extracting** bite archives.
   - USAGE: `python3 bite_unpacker.py <input> -e [path_to_destination]`
 
 > These scripts were primarily designed for integration with automated
-> build systems. Manual usage is possible, but it quickly turns into
-> a very cumbersome endeavor, as each file path must be specified
-> explicitly when packing.
+> build systems, though manual usage is also permitted. With `-h`, you
+> can view the list of all accepted actions and options.
 
 ## To-do
 

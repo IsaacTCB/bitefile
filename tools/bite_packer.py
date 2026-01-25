@@ -185,6 +185,17 @@ def parser_build():
         nargs="+",
         default=[],
     )
+    parser.add_argument(
+        "-r", "--recursive",
+        help="parse directories and their contents.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-rel", "--relative-to",
+        help="set the relative path of packed files.",
+        type=str,
+        default=str(Path.cwd()),
+    )
     # parser.add_argument(
     #     "-a", "--alignment",
     #     type=int,
@@ -199,7 +210,7 @@ def parser_build():
     parser.add_argument(
         "-v", "--verbose",
         help="display extra messages",
-        action="store_true"
+        action="store_true",
     )
     return parser
 
@@ -208,6 +219,57 @@ def _print(*args):
     """Only prints message if VERBOSE is True"""
     if VERBOSE:
         print(*args)
+
+
+def parse_input_paths(args):
+    """Filters and validate paths based on args.
+    Throws exceptions if invalid."""
+
+    # Convert strings to paths, remove dirs & duplicates
+    filtered_paths = []
+
+    input_paths = [Path(path) for path in args.input]
+    for path in input_paths:
+        # Convert path to relative
+        if path.is_absolute():
+            path = path.relative_to(args.relative_to)
+
+        # Is this path even valid?
+        if not path.exists():
+            raise Exception(
+                f"\"{path}\" does not exist!"
+            )
+
+        # For directories, recurse only if that setting is enabled
+        if path.is_dir():
+            if not args.recursive:
+                raise Exception(
+                    f"\"{path}\" is a directory! "
+                    "Use -r or --recursive for recursive selection."
+                )
+
+            for sub_path in path.rglob('*'):
+                filtered_paths.append(sub_path)
+
+            # Remove any directories from list
+            filtered_paths = [
+                path for path in filtered_paths if path.is_file()
+            ]
+
+        # Append normal files
+        elif path.is_file():
+            filtered_paths.append(path)
+        else:
+            raise Exception(
+                f"\"{path}\" is an invalid path."
+            )
+
+    filtered_paths = list(set(filtered_paths))  # Remove duplicates
+
+    if len(input_paths) == 0:
+        raise Exception("No files to pack!")
+
+    return filtered_paths
 
 
 # ==========================
@@ -228,18 +290,17 @@ def main():
     # Ensure .bite extension for final name
     bite_path = Path(args.output).with_suffix(".bite")
 
-    # Convert strings to paths, remove dirs & duplicates
-    input_paths = [Path(path) for path in args.input]
-    input_paths = [path for path in input_paths if path.is_file()]
-    input_paths = list(set(input_paths))
-
-    if len(input_paths) == 0:
-        print("No files to pack!")
+    # Parse file inputs
+    input_paths = []
+    try:
+        input_paths = parse_input_paths(args)
+    except Exception as exception:
+        print(exception)
         exit(2)
 
     with open(bite_path, "wb") as bite:
         pack_bite(bite, input_paths)
-        _print(f"Packed all files into \"{bite_path}\" successfully!")
+        _print(f"Generated \"{bite_path}\" successfully!")
 
 
 if __name__ == "__main__":
