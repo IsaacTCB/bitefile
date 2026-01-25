@@ -5,7 +5,7 @@ Bite file packer
 import argparse
 import struct
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 def pack_bite(bite, paths: list[Path]):
@@ -272,6 +272,45 @@ def parse_input_paths(args):
     return filtered_paths
 
 
+class FileNode:
+    def __init__(self):
+        self.dirs = {}
+        self.files = set()
+
+
+def build_file_tree(paths: list[Path]):
+    """Builds a filesystem tree with the given input paths."""
+
+    root = FileNode()
+
+    for path in paths:
+        parts = PurePosixPath(path).parts
+        current_node = root
+
+        for part in parts[:-1]:
+            current_node = current_node.dirs.setdefault(part, FileNode())
+
+        current_node.path = path
+        if path.is_file():
+            current_node.files.add(parts[-1])
+        else:
+            current_node.dirs.setdefault(part, FileNode())
+
+    return root
+
+
+def print_file_tree(root: FileNode, indent: int = 0):
+    """Prints a file system tree"""
+
+    tab = "   " * indent
+
+    for d in root.dirs:
+        print_file_tree(root[d], indent+1)
+
+    for f in root.files:
+        print(tab + f)
+
+
 # ==========================
 # Entrypoint
 # ==========================
@@ -297,6 +336,10 @@ def main():
     except Exception as exception:
         print(exception)
         exit(2)
+
+    file_tree = build_file_tree(input_paths)
+    print_file_tree(file_tree)
+    exit(0)
 
     with open(bite_path, "wb") as bite:
         pack_bite(bite, input_paths)
