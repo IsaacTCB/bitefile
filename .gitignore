@@ -1,5 +1,18 @@
-build/
-
+# Clang stuff
 .cache/
-
 compile_commands.json
+
+# CMake artifacts/per-user configs
+# List Taken from https://github.com/github/gitignore/blob/main/CMake.gitignore
+build/
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps
+CMakeUserPresets.json
