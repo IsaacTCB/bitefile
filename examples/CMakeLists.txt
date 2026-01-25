@@ -34,26 +34,19 @@ if(Python_FOUND)
         DESTINATION ${pack_dir}
     )
 
-    # The python packing script only accepts relative paths,
-    # so we need to convert them first.
-    set(input_paths)
-    file(GLOB_RECURSE files_to_pack "${pack_dir}/*")
-    foreach(asset ${files_to_pack})
-        file(RELATIVE_PATH path ${working_dir} ${asset})
-        list(APPEND input_paths ${path})
-    endforeach()
-
     # Command for generating the bitefile
     add_custom_command(
         OUTPUT ${pack_output}
 
         DEPENDS "${BITEFILE_TOOLS_DIR}/bite_packer.py"
-        ${files_to_pack}
+        ${pack_dir}
 
         COMMAND "$<TARGET_FILE:Python::Interpreter>"
         "${BITEFILE_TOOLS_DIR}/bite_packer.py"
-        ${input_paths}
-        -o ${pack_output}
+        --relative-to ${working_dir}
+        --recursive
+        --output ${pack_output}
+        ${pack_dir}
 
         VERBATIM
     )
