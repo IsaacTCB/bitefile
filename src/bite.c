@@ -315,7 +315,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
                         //printf("Took %d iterations!\n", (int)iterations);
                         return entry;
                     } else {
-                        BITE_IMPL_ERR("%s: path treats file as if it were a directory.", filepath);
+                        BITE_IMPL_ERR("%s: treats file as if it were a directory.", filepath);
                         return NULL;
                     }
                 }
