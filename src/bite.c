@@ -264,6 +264,11 @@ bite_packed_t* bite_packed_open(const char* filepath) {
 
 // Closes a bite packed archive handle.
 void bite_packed_close(bite_packed_t* packed) {
+    if (!packed) {
+        BITE_ERROR_MSG("bite_packed_close(): Packed handle is NULL!");
+        return;
+    }
+
     fclose(packed->handle);
     bite__table_close(&packed->table);
     free(packed);
@@ -365,7 +370,7 @@ static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry
 // Finds and opens a virtual file inside of the packed file
 bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
     if (!packed) {
-        BITE_ERROR_MSG("%s: packed handle is NULL! Maybe it wasn't properly initialized?", filepath);
+        BITE_ERROR_MSG("bite_fopen() -> %s: Packed handle is NULL! Maybe it wasn't properly initialized?", filepath);
         return NULL;
     }
 
@@ -374,7 +379,7 @@ bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
 
     bite_file_t* file = bite__file_open_entry(packed, entry);
     if (!file) {
-        BITE_ERROR_MSG("%s: unable to allocate bite_file_t handle.", filepath);
+        BITE_ERROR_MSG("bite_fopen() -> %s: unable to allocate bite_file_t handle.", filepath);
         return NULL;
     }
 
@@ -383,6 +388,10 @@ bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
 
 // Returns the name of the virtual file
 const char* bite_fname(bite_file_t* file) {
+    if (!file) {
+        BITE_ERROR_MSG("bite_fname(): file handle is NULL");
+        return NULL;
+    }
     char* ptr = file->packed_ref->table.pool.ptr;
     ptr += file->entry_ref->name_pool_offset;
     return ptr;
@@ -390,17 +399,29 @@ const char* bite_fname(bite_file_t* file) {
 
 // Closes a virtual file.
 void bite_fclose(bite_file_t* file) {
-    if (!file) return;
+    if (!file) {
+        BITE_ERROR_MSG("bite_fclose(): file handle is NULL");
+        return;
+    }
     free(file);
 }
 
 // Returns the total file size of the virtual file
 size_t bite_fsize(bite_file_t* file) {
+    if (!file) {
+        BITE_ERROR_MSG("bite_fsize(): file handle is NULL");
+        return 0;
+    }
     return file->entry_ref->data_size;
 }
 
 // Reads size of data into the destination buffer from the virtual file
 size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
+    if (!file) {
+        BITE_ERROR_MSG("bite_fread(): file handle is NULL");
+        return 0;
+    }
+
     bite__entry_t* entry = file->entry_ref;
     
     // Clamp cursor to size
@@ -429,11 +450,20 @@ size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
 
 // Returns the virtual file's current cursor position
 size_t bite_ftell(bite_file_t* file) {
+    if (!file) {
+        BITE_ERROR_MSG("bite_ftell(): file handle is NULL");
+        return 0;
+    }
     return file->pos;
 }
 
 // Seeks into a specific point depending on a whence
 int bite_fseek(bite_file_t* file, long offset, int whence) {
+    if (!file) {
+        BITE_ERROR_MSG("bite_fseek(): file handle is NULL");
+        return 0;
+    }
+
     size_t pos = 0;
 
     switch (whence) {
