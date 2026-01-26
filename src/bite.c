@@ -14,8 +14,9 @@
                                         if (!status) return BITE_ERR_MALFORMED; \
                                     } while (0)
 
-static char error_text_buffer[128];
-#define BITE_IMPL_ERR(...) (snprintf(error_text_buffer, sizeof(error_text_buffer), __VA_ARGS__))
+#define BITE_ERROR_MSG_SIZE (256)
+static char error_text_buffer[BITE_ERROR_MSG_SIZE];
+#define BITE_ERROR_MSG(...) (snprintf(error_text_buffer, BITE_ERROR_MSG_SIZE, __VA_ARGS__))
 
 typedef enum {
     BITE_OK = 0,
@@ -229,13 +230,13 @@ bite_packed_t* bite_packed_open(const char* filepath) {
 
     FILE* file = fopen(filepath, "rb");
     if (file == NULL) {
-        BITE_IMPL_ERR("Unable to open file at \"%s\", err: %d\n", filepath, ferror(file));
+        BITE_ERROR_MSG("Unable to open file at \"%s\", err: %d\n", filepath, ferror(file));
         return NULL;
     }
 
     packed = (bite_packed_t*)malloc(sizeof(*packed));
     if (packed == NULL) {
-        BITE_IMPL_ERR("Unable to allocate data for \"%s\" handle.", filepath);
+        BITE_ERROR_MSG("Unable to allocate data for \"%s\" handle.", filepath);
     }
 
     memset(packed, 0, sizeof(*packed));
@@ -244,7 +245,7 @@ bite_packed_t* bite_packed_open(const char* filepath) {
 
     bite__status_e status = bite__header_read(&packed->header, file);
     if (status != BITE_OK) {
-        BITE_IMPL_ERR("Unable to parse header. Err: %d\n", status);
+        BITE_ERROR_MSG("Unable to parse header. Err: %d\n", status);
         fclose(file);
         free(packed);
         return NULL;
@@ -252,7 +253,7 @@ bite_packed_t* bite_packed_open(const char* filepath) {
 
     status = bite__table_read(&packed->table, &packed->header, file);
     if (status != BITE_OK) {
-        BITE_IMPL_ERR("Unable to parse file table. Err: %d\n", status);
+        BITE_ERROR_MSG("Unable to parse file table. Err: %d\n", status);
         fclose(file);
         free(packed);
         return NULL;
@@ -315,7 +316,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
                         //printf("Took %d iterations!\n", (int)iterations);
                         return entry;
                     } else {
-                        BITE_IMPL_ERR("%s: treats file as if it were a directory.", filepath);
+                        BITE_ERROR_MSG("%s: treats file as if it were a directory.", filepath);
                         return NULL;
                     }
                 }
@@ -340,9 +341,9 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
 
     //printf("Took %d iterations to realize this doesn't exist!\n", (int)iterations);
     if (entry && entry->flags & 1)
-        BITE_IMPL_ERR("%s: is a directory, not a file!", filepath);
+        BITE_ERROR_MSG("%s: is a directory, not a file!", filepath);
     else
-        BITE_IMPL_ERR("%s: not found.", filepath);
+        BITE_ERROR_MSG("%s: not found.", filepath);
     
     return NULL;
 }
@@ -363,14 +364,20 @@ static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry
 
 // Finds and opens a virtual file inside of the packed file
 bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
+    if (!packed) {
+        BITE_ERROR_MSG("%s: packed handle is NULL! Maybe it wasn't properly initialized?", filepath);
+        return NULL;
+    }
+
     bite__entry_t* entry = bite__packed_find_entry(packed, filepath);
     if (!entry) return NULL;
 
     bite_file_t* file = bite__file_open_entry(packed, entry);
     if (!file) {
-        BITE_IMPL_ERR("%s: unable to allocate bite_file_t handle.", filepath);
+        BITE_ERROR_MSG("%s: unable to allocate bite_file_t handle.", filepath);
         return NULL;
     }
+
     return file;
 }
 
