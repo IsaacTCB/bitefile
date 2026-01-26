@@ -77,6 +77,11 @@ struct bite_file {
     size_t pos;
 };
 
+struct bite__string_view {
+    const char* ptr;
+    size_t size;
+};
+
 // Raw usage of this function should be avoided unless strictly needed;
 // Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
 static int bite__fread(void* out_ptr, size_t size, FILE* file) {
@@ -266,19 +271,79 @@ void bite_packed_close(bite_packed_t* packed) {
 // Finds the first entry that matches with the given filepath.
 // Returns null if no entry was found.
 static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char* filepath) {
-    bite__entry_t* entry;
+    struct bite__string_view part;
+    part.ptr = filepath;
+    part.size = 0;
 
-    for (size_t i = 0; i < packed->table.file.count; i++) {
-        entry = packed->table.file.entries + i;
+    if (packed->table.file.count == 0)
+        return NULL;
 
-        char* ptr = packed->table.pool.ptr;
-        ptr += entry->name_pool_offset;
+    size_t begin = 0;
+    size_t end = packed->table.file.count;
+    // size_t iterations = 0; // logging
+    
+    bite__entry_t* entry = NULL;
+    while (*part.ptr != '\0') {
+        part.size = 0;
 
-        if (strcmp(ptr, filepath) == 0) {
-            return entry;
+        for (const char* ch = part.ptr; *ch != '\0'; ch++) {
+            if (*ch == '/')
+                break;
+            part.size++;
         }
+
+        int found = 0;
+        for (size_t i = begin; i < end; i++) {
+            entry = packed->table.file.entries + i;
+            const char* name_ptr = packed->table.pool.ptr + entry->name_pool_offset;
+
+            // iterations++; // Log
+
+            if (entry->name_length == part.size && strncmp(part.ptr, name_ptr, part.size) == 0) {
+                // Names match
+                if (entry->flags & 1) { // Is this a directory?
+                    // Enter it and marked it as found
+                    begin = i + 1;
+                    end = i + entry->dir_sibling_offset + 1;
+                    found = 1;
+                    break;
+                } else { // Is this a file?
+                    part.ptr += part.size;
+                    while (*part.ptr == '/') part.ptr++;
+
+                    if (*part.ptr == '\0') {
+                        //printf("Took %d iterations!\n", (int)iterations);
+                        return entry;
+                    } else {
+                        BITE_IMPL_ERR("%s: path treats file as if it were a directory.", filepath);
+                        return NULL;
+                    }
+                }
+            } else { // Names aren't the same
+                if (entry->flags & 1) { // Is this a directory?
+                    // Skip all entries towards its sibling entry.
+                    i += entry->dir_sibling_offset;
+                }
+            }
+        }
+
+        // If no match was found, then path is invalid.
+        if (!found) {
+            entry = NULL;
+            break;
+        }
+
+        // Go up a filepath part.
+        part.ptr += part.size;
+        while (*part.ptr == '/') part.ptr++;
     }
 
+    //printf("Took %d iterations to realize this doesn't exist!\n", (int)iterations);
+    if (entry && entry->flags & 1)
+        BITE_IMPL_ERR("%s: is a directory, not a file!", filepath);
+    else
+        BITE_IMPL_ERR("%s: not found.", filepath);
+    
     return NULL;
 }
 
@@ -299,10 +364,7 @@ static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry
 // Finds and opens a virtual file inside of the packed file
 bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
     bite__entry_t* entry = bite__packed_find_entry(packed, filepath);
-    if (!entry) {
-        BITE_IMPL_ERR("%s: file not found.", filepath);
-        return NULL;
-    }
+    if (!entry) return NULL;
 
     bite_file_t* file = bite__file_open_entry(packed, entry);
     if (!file) {
@@ -312,11 +374,17 @@ bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
     return file;
 }
 
-// Returns the filepath of the virtual file
-const char* bite_fpath(bite_file_t* file) {
+// Returns the name of the virtual file
+const char* bite_fname(bite_file_t* file) {
     char* ptr = file->packed_ref->table.pool.ptr;
     ptr += file->entry_ref->name_pool_offset;
     return ptr;
+}
+
+// Returns the filepath of the virtual file
+const char* bite_fpath(bite_file_t* file) {
+    // @todo: This function is unfinished.
+    return bite_fname(file);
 }
 
 // Closes a virtual file.
