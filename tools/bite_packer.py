@@ -330,11 +330,10 @@ def build_file_tree(paths: list[Path]):
         for part in parts[:-1]:
             current_node = current_node.dirs.setdefault(part, FileNode())
 
-        current_node.path = path
         if path.is_file():
             current_node.files.add(parts[-1])
         else:
-            current_node.dirs.setdefault(part, FileNode())
+            current_node.dirs.setdefault(parts[-1], FileNode())
 
     return root
 
@@ -349,7 +348,7 @@ def print_file_tree(root: FileNode, indent: int = 0):
         print_file_tree(root.dirs[d], indent+1)
 
     for f in root.files:
-        print(tab + f)
+        print(tab + "- " + f)
 
 
 # ==========================
