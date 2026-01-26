@@ -35,7 +35,16 @@ typedef struct {
 } bite__header_t;
 
 typedef struct {
-    uint64_t data_offset; // Is 0 for empty files
+    uint32_t flags;
+    union {
+        struct {
+            uint64_t data_offset; // Is 0 for empty files
+        };
+        struct {
+            uint32_t dir_sibling_offset;
+            uint32_t dir_children_count; 
+        };
+    };
     uint64_t data_size;
     uint32_t reserved;
     size_t   name_pool_offset;
@@ -96,7 +105,16 @@ static bite__status_e bite__header_read(bite__header_t* header, FILE* file) {
 }
 
 static bite__status_e bite__entry_read(bite__entry_t* entry, FILE* file) {
-    BITE_IMPL_READ(&(entry->data_offset), file);
+    BITE_IMPL_READ(&(entry->flags), file);
+    // Is this a dir entry?
+    if (entry->flags & 1) {
+        BITE_IMPL_READ(&(entry->dir_sibling_offset), file);
+        BITE_IMPL_READ(&(entry->dir_children_count), file);
+    }
+    // This is a file entry?
+    else {
+        BITE_IMPL_READ(&(entry->data_offset), file);
+    }
     BITE_IMPL_READ(&(entry->data_size), file);
     BITE_IMPL_READ(&(entry->reserved), file);
 
