@@ -193,6 +193,7 @@ def pack_file(bite, input_path: Path):
     total_size = 0
 
     with open(input_path, "rb") as file:
+        _print(f"Packing {input_path}")
         data = process_file(file)
         bite.write(data)
         total_size = len(data)
