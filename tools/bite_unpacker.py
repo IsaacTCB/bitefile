@@ -11,20 +11,52 @@ from pathlib import Path
 
 def unpack_bite(bite, extract_path: Path):
     header = read_header(bite)
-    files = read_file_table(bite, header)
+    table = read_table(bite, header)
+    extract_tree(bite, table, extract_path)
 
-    for file in files:
-        dst = extract_path / file["name"]
-        try:
-            extract_file(bite, file, dst)
-        except Exception as exception:
-            print("Unable to extract file: ", exception)
-            continue  # Keep going...
+    _print("Extraction complete!")
 
 
 # ==========================
 # Core
 # ==========================
+
+def extract_tree(bite, table: list[dict], extract_path: Path):
+    """Extracts the flattened file table tree"""
+
+    # For better performance, we use a stack based approach,
+    # instead of building a full tree and iterating over it.
+    dir_stack: list[int] = []
+    dir_nested = Path()
+
+    for i in range(len(table)):
+        entry = table[i]
+
+        while dir_stack and dir_stack[-1] < i:
+            dir_stack.pop()
+            dir_nested = dir_nested.parent
+
+        try:
+            match (entry["type"]):
+                case "dir":
+                    dir_nested = dir_nested / entry["name"]
+                    dir_stack.append(i + entry["sibling"])
+
+                    # Create directory
+                    dst = extract_path / dir_nested
+                    os.makedirs(dst, exist_ok=True)
+                case "file":
+                    dst = extract_path / dir_nested / entry["name"]
+
+                    # For printing
+                    entry["path"] = dir_nested / entry["name"]
+
+                    extract_file(bite, entry, dst)
+                case _:
+                    raise Exception("Invalid tree type")
+        except Exception as exception:
+            print(f"Unable to parse index at {i}, reason: {exception}.")
+
 
 def extract_file(bite, file_entry, dst):
     """Extracts a singular file into the destination."""
@@ -38,12 +70,14 @@ def extract_file(bite, file_entry, dst):
         remaining_size = file_entry["size"]
 
         # Stream file reading/writing
-        # Only 512MB shall be loaded to RAM at once
+        # Only 1024MB shall be loaded to RAM at once
         while remaining_size > 0:
-            bytes_to_read = min(remaining_size, 512 * 1024 * 1024)
+            bytes_to_read = min(remaining_size, 1024 * 1024 * 1024)
             buffer = bite.read(bytes_to_read)
             remaining_size -= bytes_to_read
             out_file.write(buffer)
+
+        _print(f"Extracted {file_entry["path"]}")
 
 
 def read_struct(fmt, file):
@@ -91,7 +125,7 @@ def read_header(bite):
     }
 
 
-def read_file_entry(bite):
+def read_file_entry(bite, flags: int):
     """Read and parse a single file entry. This is used by
     read_file_table()."""
 
@@ -101,13 +135,35 @@ def read_file_entry(bite):
     name = read_string(bite)
 
     return {
+        "type": "file",
+        "flags": flags,
         "offset": offset,
         "size": size,
         "name": name,
     }
 
 
-def read_file_table(bite, header):
+def read_dir_entry(bite, flags: int):
+    """Read and parse a single dir entry. This is used by
+    read_file_table()."""
+
+    sibling = read_struct("<I", bite)
+    children = read_struct("<I", bite)
+    total_size = read_struct("<Q", bite)
+    read_struct("<I", bite)  # Skip reserved
+    name = read_string(bite)
+
+    return {
+        "type": "dir",
+        "flags": flags,
+        "sibling": sibling,
+        "children": children,
+        "size": total_size,
+        "name": name
+    }
+
+
+def read_table(bite, header):
     """Reads and parses the file table. Returns the parsed filedata containing
     all file entries"""
 
@@ -117,7 +173,12 @@ def read_file_table(bite, header):
     bite.seek(header["file_table_offset"], os.SEEK_SET)
 
     for i in range(header["file_table_count"]):
-        entry = read_file_entry(bite)
+        flags = read_struct("<I", bite)
+        if flags & 1:
+            entry = read_dir_entry(bite, flags)
+        else:
+            entry = read_file_entry(bite, flags)
+
         file_table_entries.append(entry)
 
     return file_table_entries
@@ -146,7 +207,18 @@ def build_parser():
         type=str,
         default="",
     )
+    parser.add_argument(
+        "-v", "--verbose",
+        help="display extra messages",
+        action="store_true",
+    )
     return parser
+
+
+def _print(*args):
+    """Only prints message if VERBOSE is True"""
+    if VERBOSE:
+        print(*args)
 
 
 # ==========================
@@ -156,6 +228,10 @@ def build_parser():
 def main():
     parser = build_parser()
     args: Namespace = parser.parse_args()
+
+    # Ugly but works
+    global VERBOSE
+    VERBOSE = args.verbose
 
     try:
         bite = open(args.input, "rb")
