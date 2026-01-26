@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     const char* filepath = "assets/basic/hello.txt";
     bite_file_t* file = bite_fopen(packed, filepath);
     if (file) {
-        printf("Found file '%s'!\n", bite_fpath(file));
+        printf("Found file '%s'!\n", bite_fname(file));
 
         // Get size using the Bite way.
         size_t len = bite_fsize(file);
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     filepath = "assets/basic/other.txt";
     file = bite_fopen(packed, filepath);
     if (file) {
-        printf("Found file '%s'!\n", bite_fpath(file));
+        printf("Found file '%s'!\n", bite_fname(file));
 
         // Get size using the std way.
         int status = bite_fseek(file, 0, SEEK_END);

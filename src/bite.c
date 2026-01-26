@@ -381,12 +381,6 @@ const char* bite_fname(bite_file_t* file) {
     return ptr;
 }
 
-// Returns the filepath of the virtual file
-const char* bite_fpath(bite_file_t* file) {
-    // @todo: This function is unfinished.
-    return bite_fname(file);
-}
-
 // Closes a virtual file.
 void bite_fclose(bite_file_t* file) {
     if (!file) return;

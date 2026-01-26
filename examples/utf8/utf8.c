@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     const char* filepath = "assets/utf8/thïs_filénàme_hãs_special_chars";
     bite_file_t* file = bite_fopen(packed, filepath);
     if (file) {
-        printf("Found file '%s'!\n", bite_fpath(file));
+        printf("Found file '%s'!\n", bite_fname(file));
 
         // Get size using the Bite way.
         size_t len = bite_fsize(file);
