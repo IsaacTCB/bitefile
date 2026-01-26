@@ -29,7 +29,7 @@ def pack_bite(bite, paths: list[Path]):
     file_table_offset = bite.tell()
     write_table(bite, table)
 
-    # # Patch bite header w/ new info
+    # Patch bite header w/ new info
     write_header(
         bite,
         opts={
@@ -114,6 +114,13 @@ def pack_tree(bite, root: FileTree, relative_path: Path = Path()):
     if relative_path != Path():
         table_entries[0]["children"] = children
         table_entries[0]["sibling"] = sibling
+
+        # Calculate directory filesize
+        size = 0
+        for entry in table_entries:
+            if entry["type"] == "file":
+                size += entry["size"]
+        table_entries[0]["size"] = size
 
     return table_entries
 
@@ -349,11 +356,17 @@ class FileNode:
 
 def build_file_tree(paths: list[Path]):
     """Builds a filesystem tree with the given input paths."""
-
     root = FileNode()
 
+    # Sort list by directory and alphabetically
+    paths.sort(key=lambda p: (
+        p.parts[:-1],
+        p.name.lower(),
+        p.name,
+    ))
+
     for path in paths:
-        parts = PurePosixPath(path).parts
+        parts = path.parts
         current_node = root
 
         for part in parts[:-1]:
