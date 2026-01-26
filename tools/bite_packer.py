@@ -18,32 +18,26 @@ def pack_bite(bite, paths: list[Path]):
     write_header(bite)  # Write a placeholder bite header
 
     file_tree = build_file_tree(paths)
-    print_file_tree(file_tree)
-    table = pack_tree(bite, file_tree)
-    print(table)
-    exit(0)
+    if VERBOSE:
+        print_file_tree(file_tree)
 
-    # file_table_entries = pack_all_files(bite, file_tree)
-    #
-    # # Find data offset position
-    # file_data_offset = 0
-    # if len(file_table_entries) > 0:
-    #     file_data_offset = file_table_entries[0]["file_offset"]
-    #
-    # write_padding(bite)  # Padding bc CPU likes its aligned mem
-    #
-    # file_table_offset = bite.tell()
-    # write_file_table(bite, file_table_entries)
-    #
+    table = pack_tree(bite, file_tree)
+
+    file_data_offset = 0
+    write_padding(bite)  # Padding bc CPU likes its aligned mem
+
+    file_table_offset = bite.tell()
+    write_table(bite, table)
+
     # # Patch bite header w/ new info
-    # write_header(
-    #     bite,
-    #     opts={
-    #         "file_table_offset": file_table_offset,
-    #         "file_table_count": len(file_table_entries),
-    #         "file_data_offset": file_data_offset,
-    #     }
-    # )
+    write_header(
+        bite,
+        opts={
+            "file_table_offset": file_table_offset,
+            "file_table_count": len(table),
+            "file_data_offset": file_data_offset,
+        }
+    )
 
 
 # ==========================
@@ -99,6 +93,7 @@ def pack_tree(bite, root: FileTree, relative_path: Path = Path()):
             "name": relative_path.name,
             "children": 0,
             "sibling": 0,
+            "size": 0,  # @todo: calculate this.
         })
 
     children = 0
@@ -110,6 +105,7 @@ def pack_tree(bite, root: FileTree, relative_path: Path = Path()):
         children += 1
 
     for f in root.files:
+        write_padding(bite)
         entry = pack_file(bite, relative_path / f)
         table_entries.append((entry))
         sibling += 1
@@ -141,21 +137,53 @@ def pack_all_files(bite, input_paths: list[Path]):
     return file_table_entries
 
 
-def write_file_table(bite, file_table_entries: list):
-    """Writes the file metadata table, containing offsets, sizes and more"""
+def write_table_entry_dir(bite, dir_entry: dict):
+    # Write flags (4 bytes)
+    write_struct(bite, "<I", 1)
 
-    for file_entry in file_table_entries:
-        # Write offset (4 bytes)
-        write_struct(bite, "<Q", file_entry["file_offset"])
+    # Write sibling distance (4 bytes)
+    write_struct(bite, "<I", dir_entry["sibling"])
 
-        # Data size (8 bytes)
-        write_struct(bite, "<Q", file_entry["file_size"])
+    # Write children count (4 bytes)
+    write_struct(bite, "<I", dir_entry["children"])
 
-        # Reserved data (4 bytes)
-        write_struct(bite, "<I", 0)
+    # Write total dir size (8 bytes, not calculated yet)
+    write_struct(bite, "<Q", dir_entry["size"])
 
-        # Filename (1 byte + N bytes)
-        write_string(bite, file_entry["file_path"])
+    # Reserved (4 bytes)
+    write_struct(bite, "<I", 0)
+
+    # Name (1 byte + N bytes)
+    write_string(bite, dir_entry["name"])
+
+
+def write_table_entry_file(bite, file_entry: dict):
+    """Writes the file table entry, containing offsets, sizes and more"""
+    # Write flags (4 bytes)
+    write_struct(bite, "<I", 0)
+
+    # Write offset (8 bytes)
+    write_struct(bite, "<Q", file_entry["offset"])
+
+    # Data size (8 bytes)
+    write_struct(bite, "<Q", file_entry["size"])
+
+    # Reserved data (4 bytes)
+    write_struct(bite, "<I", 0)
+
+    # Name (1 byte + N bytes)
+    write_string(bite, file_entry["name"])
+
+
+def write_table(bite, table_entries: list[dict]):
+    for entry in table_entries:
+        match entry["type"]:
+            case "dir":
+                write_table_entry_dir(bite, entry)
+            case "file":
+                write_table_entry_file(bite, entry)
+            case _:
+                raise Exception(f"Invalid file table type \"{entry["type"]}\"")
 
 
 def pack_file(bite, input_path: Path):
