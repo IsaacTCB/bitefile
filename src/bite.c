@@ -148,7 +148,7 @@ static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* hea
     
     // Skip to file entry offset
     long old_pos = ftell(file);
-    if (fseek(file, header->file_entry_offset, SEEK_SET) != 0) {
+    if (fseek(file, (long)header->file_entry_offset, SEEK_SET) != 0) {
         return BITE_ERR_MALFORMED;
     }
 
@@ -230,13 +230,15 @@ bite_packed_t* bite_packed_open(const char* filepath) {
 
     FILE* file = fopen(filepath, "rb");
     if (file == NULL) {
-        BITE_ERROR_MSG("Unable to open file at \"%s\", err: %d\n", filepath, ferror(file));
+        BITE_ERROR_MSG("Unable to open file at \"%s\"\n", filepath);
         return NULL;
     }
 
     packed = (bite_packed_t*)malloc(sizeof(*packed));
     if (packed == NULL) {
         BITE_ERROR_MSG("Unable to allocate data for \"%s\" handle.", filepath);
+        fclose(file);
+        return NULL;
     }
 
     memset(packed, 0, sizeof(*packed));
@@ -411,7 +413,8 @@ size_t bite_fsize(bite_file_t* file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fsize(): file handle is NULL");
         return 0;
-    }
+    } 
+
     return file->entry_ref->data_size;
 }
 
@@ -430,7 +433,7 @@ size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
     }
 
     FILE* handle = file->packed_ref->handle;
-    fseek(handle, entry->data_offset + file->pos, SEEK_SET);
+    fseek(handle, (long)(entry->data_offset + file->pos), SEEK_SET);
 
     // Limit reading size
     if (file->pos + size >= entry->data_size) {

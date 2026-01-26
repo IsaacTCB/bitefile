@@ -1,0 +1,11 @@
+CompileFlags:
+  Add: [ -Wall ]
+
+Diagnostics:
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - performance-*
+      - modernize-*
+    Remove:
+      - bugprone-easily-swappable-parameters
