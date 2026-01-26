@@ -293,7 +293,7 @@ bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
 
     bite__entry_t* entry = bite__packed_find_entry(packed, filepath);
     if (!entry) {
-        BITE_IMPL_ERR("%s: file not found.", filepath);
+        BITE_ERROR_MSG("%s: file not found.", filepath);
         return NULL;
     }
 
@@ -308,6 +308,10 @@ bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
 
 // Returns the filepath of the virtual file
 const char* bite_fpath(bite_file_t* file) {
+    if (!file) {
+        BITE_ERROR_MSG("bite_fpath(): file handle is NULL");
+        return NULL;
+    }
     char* ptr = file->packed_ref->table.pool.ptr;
     ptr += file->entry_ref->name_pool_offset;
     return ptr;
