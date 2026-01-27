@@ -5,7 +5,8 @@ Bite file packer
 import argparse
 import struct
 import os
-from pathlib import Path, PurePosixPath
+from io import FileIO
+from pathlib import Path
 
 
 class FileTree:
@@ -14,7 +15,7 @@ class FileTree:
         self.files = set()
 
 
-def pack_bite(bite, paths: list[Path]):
+def pack_bite(bite: FileIO, paths: list[Path]):
     write_header(bite)  # Write a placeholder bite header
 
     file_tree = build_file_tree(paths)
@@ -46,7 +47,7 @@ def pack_bite(bite, paths: list[Path]):
 
 
 def write_header(
-    bite,
+    bite: FileIO,
     header_version=1,
     opts: dict = {
         "file_table_offset": 0,
@@ -84,7 +85,7 @@ def write_header(
     write_struct(bite, "<I", 0)
 
 
-def pack_tree(bite, root: FileTree, relative_path: Path = Path()):
+def pack_tree(bite: FileIO, root: FileTree, relative_path: Path = Path()):
     table_entries = []
 
     if relative_path != Path():
@@ -100,8 +101,8 @@ def pack_tree(bite, root: FileTree, relative_path: Path = Path()):
     sibling = 0
     for d in root.dirs:
         entries = pack_tree(bite, root.dirs[d], relative_path / d)
-        sibling += 1 + entries[0]["sibling"]
         table_entries += entries
+        sibling += 1 + entries[0]["sibling"]
         children += 1
 
     for f in root.files:
@@ -125,7 +126,7 @@ def pack_tree(bite, root: FileTree, relative_path: Path = Path()):
     return table_entries
 
 
-def pack_all_files(bite, input_paths: list[Path]):
+def pack_all_files(bite: FileIO, input_paths: list[Path]):
     """Pack all files into the bite, returns a list of file
     table entries"""
 
@@ -144,7 +145,7 @@ def pack_all_files(bite, input_paths: list[Path]):
     return file_table_entries
 
 
-def write_table_entry_dir(bite, dir_entry: dict):
+def write_table_entry_dir(bite: FileIO, dir_entry: dict):
     # Write flags (4 bytes)
     write_struct(bite, "<I", 1)
 
@@ -164,7 +165,7 @@ def write_table_entry_dir(bite, dir_entry: dict):
     write_string(bite, dir_entry["name"])
 
 
-def write_table_entry_file(bite, file_entry: dict):
+def write_table_entry_file(bite: FileIO, file_entry: dict):
     """Writes the file table entry, containing offsets, sizes and more"""
     # Write flags (4 bytes)
     write_struct(bite, "<I", 0)
@@ -182,7 +183,7 @@ def write_table_entry_file(bite, file_entry: dict):
     write_string(bite, file_entry["name"])
 
 
-def write_table(bite, table_entries: list[dict]):
+def write_table(bite: FileIO, table_entries: list[dict]):
     for entry in table_entries:
         match entry["type"]:
             case "dir":
@@ -193,7 +194,7 @@ def write_table(bite, table_entries: list[dict]):
                 raise Exception(f"Invalid file table type \"{entry["type"]}\"")
 
 
-def pack_file(bite, input_path: Path):
+def pack_file(bite: FileIO, input_path: Path):
     """Opens a file and appends its data onto the bite file"""
 
     file_offset = bite.tell()
@@ -213,7 +214,7 @@ def pack_file(bite, input_path: Path):
     }
 
 
-def process_file(file):
+def process_file(file: FileIO):
     """Processes a file and returns the data to be stored."""
 
     bytes = file.read()
@@ -224,7 +225,7 @@ def process_file(file):
 # Helpers
 # ==========================
 
-def write_struct(bite, fmt: str, *values):
+def write_struct(bite: FileIO, fmt: str, *values):
     """Writes a struct template to output file"""
 
     if ">" not in fmt and "<" not in fmt:
@@ -235,7 +236,7 @@ def write_struct(bite, fmt: str, *values):
     )
 
 
-def write_padding(bite, alignment=16):
+def write_padding(bite: FileIO, alignment: int = 16):
     """Writes empty padding until the file cursor is on a block alignment"""
 
     pad = alignment - (bite.tell() % alignment)
@@ -244,7 +245,7 @@ def write_padding(bite, alignment=16):
         write_struct(bite, "b", 0)
 
 
-def write_string(bite, string: str):
+def write_string(bite: FileIO, string: str):
     encoded = string.encode('utf-8')
     write_struct(bite, "<B", len(encoded))
     bite.write(encoded)

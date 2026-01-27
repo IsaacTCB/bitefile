@@ -5,11 +5,12 @@ Bite file unpacker
 
 import struct
 import os
+from io import FileIO
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 
-def unpack_bite(bite, extract_path: Path):
+def unpack_bite(bite: FileIO, extract_path: Path):
     header = read_header(bite)
     table = read_table(bite, header)
     extract_tree(bite, table, extract_path)
@@ -21,7 +22,7 @@ def unpack_bite(bite, extract_path: Path):
 # Core
 # ==========================
 
-def extract_tree(bite, table: list[dict], extract_path: Path):
+def extract_tree(bite: FileIO, table: list[dict], extract_path: Path):
     """Extracts the flattened file table tree"""
 
     # For better performance, we use a stack based approach,
@@ -58,7 +59,7 @@ def extract_tree(bite, table: list[dict], extract_path: Path):
             print(f"Unable to parse index at {i}, reason: {exception}.")
 
 
-def extract_file(bite, file_entry, dst):
+def extract_file(bite: FileIO, file_entry, dst):
     """Extracts a singular file into the destination."""
 
     # Skip to file data offset
@@ -101,7 +102,7 @@ def read_string(file):
     return string
 
 
-def read_header(bite):
+def read_header(bite: FileIO):
     """Reads the bite header and converts it into a human-readable
     dictionary."""
 
@@ -125,7 +126,7 @@ def read_header(bite):
     }
 
 
-def read_file_entry(bite, flags: int):
+def read_file_entry(bite: FileIO, flags: int):
     """Read and parse a single file entry. This is used by
     read_file_table()."""
 
@@ -143,7 +144,7 @@ def read_file_entry(bite, flags: int):
     }
 
 
-def read_dir_entry(bite, flags: int):
+def read_dir_entry(bite: FileIO, flags: int):
     """Read and parse a single dir entry. This is used by
     read_file_table()."""
 
@@ -163,7 +164,7 @@ def read_dir_entry(bite, flags: int):
     }
 
 
-def read_table(bite, header):
+def read_table(bite: FileIO, header):
     """Reads and parses the file table. Returns the parsed filedata containing
     all file entries"""
 
