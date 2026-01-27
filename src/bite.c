@@ -285,6 +285,8 @@ const char* bite_error_str() {
 // Private
 // =====================
 
+// Used by bite__packed_find_entry() for selecting
+// filepath sections
 struct bite__string_view {
     const char* ptr;
     size_t size;
@@ -294,6 +296,17 @@ struct bite__string_view {
 // Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
 static int bite__fread(void* out_ptr, size_t size, FILE* file) {
     return fread(out_ptr, size, 1, file) == 1;
+}
+
+// Turns out strnlen() isn't standard, so we rewrite it.
+static size_t bite__strnlen(const char* str, size_t size) {
+    size_t sz;
+    for (sz = 0; sz < size; sz++) {
+        if (str[sz] == '\0') {
+            break;
+        }
+    }
+    return sz;
 }
 
 static bite__status_e bite__header_read(bite__header_t* header, FILE* file) {
@@ -430,7 +443,7 @@ static void bite__table_close(bite__table_t* table) {
 // Finds the first entry that matches with the given filepath.
 // Returns null if no entry was found.
 static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char* filepath) {
-    if (strnlen(filepath, BITE_PATH_MAX_LENGTH) >= BITE_PATH_MAX_LENGTH) {
+    if (bite__strnlen(filepath, BITE_PATH_MAX_LENGTH) >= BITE_PATH_MAX_LENGTH) {
         BITE_ERROR_MSG("filepath is too large (strlen(filepath) >= %d)", BITE_PATH_MAX_LENGTH);
         return NULL;
     }
