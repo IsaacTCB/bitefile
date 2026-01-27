@@ -27,6 +27,11 @@ typedef enum {
     BITE_ERR_MALFORMED,    // Malformed file format
 } bite__status_e;
 
+typedef enum {
+    ENTRY_NONE = (0),
+    ENTRY_IS_DIR = (1 << 0),
+} bite__entry_flags_e;
+
 typedef struct {
     uint32_t magic; // BITE, in ASCII
     uint16_t version;
@@ -115,7 +120,7 @@ static bite__status_e bite__header_read(bite__header_t* header, FILE* file) {
 static bite__status_e bite__entry_read(bite__entry_t* entry, FILE* file) {
     BITE_IMPL_READ(&(entry->flags), file);
     // Is this a dir entry?
-    if (entry->flags & 1) {
+    if (entry->flags & ENTRY_IS_DIR) {
         BITE_IMPL_READ(&(entry->dir_sibling_offset), file);
         BITE_IMPL_READ(&(entry->dir_children_count), file);
     }
@@ -311,7 +316,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
 
             if (entry->name_length == part.size && strncmp(part.ptr, name_ptr, part.size) == 0) {
                 // Names match
-                if (entry->flags & 1) { // Is this a directory?
+                if (entry->flags & ENTRY_IS_DIR) { // Is this a directory?
                     // Enter it and marked it as found
                     begin = i + 1;
                     end = i + entry->dir_sibling_offset + 1;
@@ -330,7 +335,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
                     }
                 }
             } else { // Names aren't the same
-                if (entry->flags & 1) { // Is this a directory?
+                if (entry->flags & ENTRY_IS_DIR) { // Is this a directory?
                     // Skip all entries towards its sibling entry.
                     i += entry->dir_sibling_offset;
                 }
@@ -349,7 +354,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
     }
 
     //printf("Took %d iterations to realize this doesn't exist!\n", (int)iterations);
-    if (entry && entry->flags & 1)
+    if (entry && entry->flags & ENTRY_IS_DIR)
         BITE_ERROR_MSG("%s: is a directory, not a file!", filepath);
     else
         BITE_ERROR_MSG("%s: not found.", filepath);
