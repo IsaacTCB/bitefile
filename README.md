@@ -16,7 +16,8 @@ a serious and professional-grade way of reading and storing data.
 Bite is a data archive format I created for storing multiple files of any
 type into one large `.bite` file, akin to
 [Doom's WAD files](https://doomwiki.org/wiki/WAD) and
-[Godot's PCK format](https://github.com/godotengine/godot/blob/master/core/io/pck_packer.cpp). In fact, the latter was a largely useful reference for the implementation.
+[Godot's PCK format](https://github.com/godotengine/godot/blob/master/core/io/pck_packer.cpp).
+In fact, the latter was a largely useful reference for the implementation.
 
 It was designed as a way to store/load assets for game engines, where
 high file load and process speeds are crucial, so no compression algorithms
