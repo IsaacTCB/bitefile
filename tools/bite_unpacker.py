@@ -25,7 +25,9 @@ def extract_tree(
         table: list[dict],
         extract_path: Path
 ) -> None:
-    """Extracts all files/dirs from the flattened file table tree"""
+    """
+    Extracts all files/dirs from the flattened file table tree
+    """
 
     # For better performance, we use stacks to know what directory
     # we are on, instead of rebuilding an actual full tree and then
@@ -65,7 +67,9 @@ def extract_tree(
 
 
 def extract_file(bite: BufferedReader, file_entry, dst) -> None:
-    """Extracts a singular file into the destination."""
+    """
+    Extracts a singular file into the destination.
+    """
 
     # Skip to file data offset
     bite.seek(file_entry["offset"], os.SEEK_SET)
@@ -87,7 +91,9 @@ def extract_file(bite: BufferedReader, file_entry, dst) -> None:
 
 
 def read_struct(fmt: str, file: BufferedReader) -> any:
-    """Wrapper function for reading bytes of files into real numbers."""
+    """
+    Wrapper function for reading bytes of files into real numbers.
+    """
 
     if ">" not in fmt and "<" not in fmt:
         fmt = "<" + fmt  # Ensure little endian
@@ -98,7 +104,9 @@ def read_struct(fmt: str, file: BufferedReader) -> any:
 
 
 def read_string(file: BufferedReader) -> str:
-    """Reads a string from the bite file."""
+    """
+    Reads a string from the bite file.
+    """
 
     length = read_struct("<B", file)
 
@@ -108,8 +116,10 @@ def read_string(file: BufferedReader) -> str:
 
 
 def read_header(bite: BufferedReader) -> dict:
-    """Reads the bite header and converts it into a human-readable
-    dictionary."""
+    """
+    Reads the bite header and converts it into a human-readable
+    dictionary.
+    """
 
     magic = bite.read(4)
     if magic != b'BITE':
@@ -132,8 +142,10 @@ def read_header(bite: BufferedReader) -> dict:
 
 
 def read_file_entry(bite: BufferedReader, flags: int) -> dict:
-    """Read and parse a single file entry. This is used by
-    read_file_table()."""
+    """
+    Read and parse a single file entry. This is used by
+    read_file_table().
+    """
 
     offset = read_struct("<Q", bite)
     size = read_struct("<Q", bite)
@@ -150,8 +162,10 @@ def read_file_entry(bite: BufferedReader, flags: int) -> dict:
 
 
 def read_dir_entry(bite: BufferedReader, flags: int) -> dict:
-    """Read and parse a single dir entry. This is used by
-    read_file_table()."""
+    """
+    Read and parse a single dir entry. This is used by
+    read_file_table().
+    """
 
     sibling = read_struct("<I", bite)
     children = read_struct("<I", bite)
@@ -170,8 +184,10 @@ def read_dir_entry(bite: BufferedReader, flags: int) -> dict:
 
 
 def read_table(bite: BufferedReader, header: dict) -> list[dict]:
-    """Reads and parses the file table. Returns the parsed filedata containing
-    all file entries"""
+    """
+    Reads and parses the file table. Returns the parsed filedata containing
+    all file entries
+    """
 
     file_table_entries = []
 
@@ -195,7 +211,9 @@ def read_table(bite: BufferedReader, header: dict) -> list[dict]:
 # ==========================
 
 def build_parser() -> ArgumentParser:
-    """Builds an argparse object containing all relevant cli data"""
+    """
+    Builds an argparse object containing all relevant cli data
+    """
 
     parser = ArgumentParser(
         prog="bite_unpacker",
@@ -222,7 +240,10 @@ def build_parser() -> ArgumentParser:
 
 
 def _print(*args):
-    """Only prints message if VERBOSE is True"""
+    """
+    Only prints message if VERBOSE is True
+    """
+
     if VERBOSE:
         print(*args)
 
@@ -232,6 +253,10 @@ def _print(*args):
 # ==========================
 
 def main():
+    """
+    Entrypoint
+    """
+
     parser = build_parser()
     args: Namespace = parser.parse_args()
 

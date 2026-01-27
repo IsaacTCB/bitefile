@@ -63,7 +63,9 @@ def write_header(
         "file_data_offset": 0,
     },
 ) -> None:
-    """Writes the bite header into the output file.
+    """
+    Writes the bite header into the output file.
+
     When called without any arguments (except for the file handle),
     it will print a stub header.
     """
@@ -98,8 +100,11 @@ def pack_tree(
         root: DirTree,
         relative_path: Path = Path()
 ) -> list[dict]:
-    """Packs every containing file inside a root DirTree recursively,
-    and returns their table entries alongside every dir entry."""
+    """
+    Packs every containing file inside a root DirTree recursively,
+    and returns their table entries alongside every dir entry.
+    """
+
     table_entries = []
 
     if relative_path != Path():
@@ -141,8 +146,10 @@ def pack_tree(
 
 
 def write_table_entry_dir(bite: BufferedWriter, dir_entry: dict) -> None:
-    """Writes a single directory entry into a file from its
-    current position."""
+    """
+    Writes a single directory entry into a file from its
+    current position.
+    """
 
     # Write flags (4 bytes)
     write_struct(bite, "<I", 1)
@@ -164,8 +171,10 @@ def write_table_entry_dir(bite: BufferedWriter, dir_entry: dict) -> None:
 
 
 def write_table_entry_file(bite: BufferedWriter, file_entry: dict) -> None:
-    """Writes a single file table entry, containing offsets,
-    sizes and more"""
+    """
+    Writes a single file table entry, containing offsets,
+    sizes and more.
+    """
 
     # Write flags (4 bytes)
     write_struct(bite, "<I", 0)
@@ -184,7 +193,9 @@ def write_table_entry_file(bite: BufferedWriter, file_entry: dict) -> None:
 
 
 def write_table(bite: BufferedWriter, table_entries: list[dict]) -> None:
-    """Writes the entire table list into the packed file."""
+    """
+    Writes the entire table list into the packed file.
+    """
 
     for entry in table_entries:
         match entry["type"]:
@@ -197,7 +208,9 @@ def write_table(bite: BufferedWriter, table_entries: list[dict]) -> None:
 
 
 def pack_file(bite: BufferedWriter, input_path: Path) -> dict:
-    """Opens a file and appends its data onto the bite file"""
+    """
+    Opens a file and appends its data onto the bite file.
+    """
 
     file_offset = bite.tell()
     total_size = 0
@@ -217,7 +230,9 @@ def pack_file(bite: BufferedWriter, input_path: Path) -> dict:
 
 
 def process_file(file: BufferedWriter) -> None:
-    """Processes a file and returns the data to be stored."""
+    """
+    Processes a file and returns the data to be stored.
+    """
 
     bytes = file.read()
     return bytes
@@ -228,7 +243,9 @@ def process_file(file: BufferedWriter) -> None:
 # ==========================
 
 def write_struct(bite: BufferedWriter, fmt: str, *values) -> None:
-    """Writes a struct template to output file"""
+    """
+    Writes a struct template to output file.
+    """
 
     if ">" not in fmt and "<" not in fmt:
         fmt = "<" + fmt  # Ensure little endian
@@ -239,7 +256,9 @@ def write_struct(bite: BufferedWriter, fmt: str, *values) -> None:
 
 
 def write_padding(bite: BufferedWriter, alignment: int = 16) -> None:
-    """Writes empty padding until the file cursor is on a block alignment"""
+    """
+    Writes empty padding until the file cursor is on a block alignment
+    """
 
     pad = alignment - (bite.tell() % alignment)
     pad = pad % alignment
@@ -254,7 +273,9 @@ def write_string(bite: BufferedWriter, string: str) -> None:
 
 
 def parser_build() -> None:
-    """Builds an argparse object containing all relevant cli data"""
+    """
+    Builds an argparse object containing all relevant cli data
+    """
 
     parser = argparse.ArgumentParser(
         prog="bite_packer",
@@ -300,14 +321,19 @@ def parser_build() -> None:
 
 
 def _print(*args):
-    """Only prints message if VERBOSE is True"""
+    """
+    Only prints message if VERBOSE is True
+    """
+
     if VERBOSE:
         print(*args)
 
 
 def parse_input_paths(args: list[str]) -> list[Path]:
-    """Filters and validate paths based on args.
-    Throws exceptions if invalid."""
+    """
+    Filters and validate paths based on args.
+    Throws exceptions if invalid.
+    """
 
     # Convert strings to paths, remove dirs & duplicates
     filtered_paths = []
@@ -352,7 +378,10 @@ def parse_input_paths(args: list[str]) -> list[Path]:
 
 
 def build_file_tree(paths: list[Path]) -> DirTree:
-    """Builds a filesystem tree with the given input paths."""
+    """
+    Builds a filesystem tree with the given input paths.
+    """
+
     root = DirTree()
 
     # Sort list by directory and alphabetically
@@ -378,7 +407,9 @@ def build_file_tree(paths: list[Path]) -> DirTree:
 
 
 def print_file_tree(root: DirTree, indent: int = 0) -> None:
-    """Prints a directory tree"""
+    """
+    Prints a directory tree
+    """
 
     tab = "   " * indent
 
@@ -398,6 +429,7 @@ def main() -> None:
     """
     Entrypoint
     """
+
     parser = parser_build()
     args = parser.parse_args()
 
