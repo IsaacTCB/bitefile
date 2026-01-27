@@ -440,6 +440,12 @@ static void bite__table_close(bite__table_t* table) {
     table->pool.capacity = 0;
 }
 
+// Checks whether or not the string offset has a path separator.
+// It should return the amount of characters to skip, but that's not yet implemented.
+static inline int bite__path_is_separator(const char* str) {
+    return (*str == '/' /* || *str == '\\' */);
+}
+
 // Finds the first entry that matches with the given filepath.
 // Returns null if no entry was found.
 static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char* filepath) {
@@ -451,7 +457,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
     struct bite__string_view part;
     part.ptr = filepath;
     part.size = 0;
-    while (*part.ptr == '/') part.ptr++; // Skip any forward slash from the beginning
+    while (bite__path_is_separator(part.ptr)) part.ptr++; // Skip any forward slash from the beginning
 
     if (packed->table.file.count == 0)
         return NULL;
@@ -465,7 +471,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
 
         // Count characters until next forward slash or NUL
         for (const char* ch = part.ptr; *ch != '\0'; ch++) {
-            if (*ch == '/')
+            if (bite__path_is_separator(ch))
                 break;
             part.size++;
         }
@@ -489,7 +495,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
                 } else { // Is this a file?
                     // Does the filepath have any more sections?
                     part.ptr += part.size;
-                    while (*part.ptr == '/') part.ptr++;
+                    while (bite__path_is_separator(part.ptr)) part.ptr++;
                     if (*part.ptr != '\0') {
                         // If so, then filepath is invalid.
                         BITE_ERROR_MSG(
@@ -515,7 +521,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
 
         // Go up a filepath section.
         part.ptr += part.size;
-        while (*part.ptr == '/') part.ptr++;
+        while (bite__path_is_separator(part.ptr)) part.ptr++;
     }
 
     //printf("Took %d iterations to realize this doesn't exist!\n", (int)iterations);
