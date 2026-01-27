@@ -94,5 +94,4 @@ the future:
 - API for listing all files/dirs in a directory (like dirent.h, perhaps?)
 - Allow interaction with multiple packed files using a single packed_file_t* handle.
 - Per-file compression.
-- Better file searching algorithm.
 - CRC Checksum system?
