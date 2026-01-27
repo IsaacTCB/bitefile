@@ -5,41 +5,47 @@ Bite file unpacker
 
 import struct
 import os
-from io import FileIO
+from io import BufferedReader
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 
-def unpack_bite(bite: FileIO, extract_path: Path):
+def unpack_bite(bite: BufferedReader, extract_path: Path) -> None:
     header = read_header(bite)
     table = read_table(bite, header)
     extract_tree(bite, table, extract_path)
-
-    _print("Extraction complete!")
 
 
 # ==========================
 # Core
 # ==========================
 
-def extract_tree(bite: FileIO, table: list[dict], extract_path: Path):
-    """Extracts the flattened file table tree"""
+def extract_tree(
+        bite: BufferedReader,
+        table: list[dict],
+        extract_path: Path
+) -> None:
+    """Extracts all files/dirs from the flattened file table tree"""
 
-    # For better performance, we use a stack based approach,
-    # instead of building a full tree and iterating over it.
+    # For better performance, we use stacks to know what directory
+    # we are on, instead of rebuilding an actual full tree and then
+    # iterating over it.
     dir_stack: list[int] = []
     dir_nested = Path()
 
     for i in range(len(table)):
         entry = table[i]
 
+        # Are we still on the stack's top directory?
         while dir_stack and dir_stack[-1] < i:
+            # If not, pop it and update current nested path.
             dir_stack.pop()
             dir_nested = dir_nested.parent
 
         try:
             match (entry["type"]):
                 case "dir":
+                    # This a dir, push it onto our stack
                     dir_nested = dir_nested / entry["name"]
                     dir_stack.append(i + entry["sibling"])
 
@@ -47,19 +53,18 @@ def extract_tree(bite: FileIO, table: list[dict], extract_path: Path):
                     dst = extract_path / dir_nested
                     os.makedirs(dst, exist_ok=True)
                 case "file":
+                    # This is a file. Extract it!
                     dst = extract_path / dir_nested / entry["name"]
-
-                    # For printing
-                    entry["path"] = dir_nested / entry["name"]
-
+                    entry["path"] = dir_nested / entry["name"]  # For printing
                     extract_file(bite, entry, dst)
                 case _:
                     raise Exception("Invalid tree type")
+
         except Exception as exception:
             print(f"Unable to parse index at {i}, reason: {exception}.")
 
 
-def extract_file(bite: FileIO, file_entry, dst):
+def extract_file(bite: BufferedReader, file_entry, dst) -> None:
     """Extracts a singular file into the destination."""
 
     # Skip to file data offset
@@ -81,7 +86,7 @@ def extract_file(bite: FileIO, file_entry, dst):
         _print(f"Extracted {file_entry["path"]}")
 
 
-def read_struct(fmt, file):
+def read_struct(fmt: str, file: BufferedReader) -> any:
     """Wrapper function for reading bytes of files into real numbers."""
 
     if ">" not in fmt and "<" not in fmt:
@@ -92,7 +97,7 @@ def read_struct(fmt, file):
     return struct.unpack(fmt, buffer)[0]
 
 
-def read_string(file):
+def read_string(file: BufferedReader) -> str:
     """Reads a string from the bite file."""
 
     length = read_struct("<B", file)
@@ -102,7 +107,7 @@ def read_string(file):
     return string
 
 
-def read_header(bite: FileIO):
+def read_header(bite: BufferedReader) -> dict:
     """Reads the bite header and converts it into a human-readable
     dictionary."""
 
@@ -126,7 +131,7 @@ def read_header(bite: FileIO):
     }
 
 
-def read_file_entry(bite: FileIO, flags: int):
+def read_file_entry(bite: BufferedReader, flags: int) -> dict:
     """Read and parse a single file entry. This is used by
     read_file_table()."""
 
@@ -144,7 +149,7 @@ def read_file_entry(bite: FileIO, flags: int):
     }
 
 
-def read_dir_entry(bite: FileIO, flags: int):
+def read_dir_entry(bite: BufferedReader, flags: int) -> dict:
     """Read and parse a single dir entry. This is used by
     read_file_table()."""
 
@@ -164,7 +169,7 @@ def read_dir_entry(bite: FileIO, flags: int):
     }
 
 
-def read_table(bite: FileIO, header):
+def read_table(bite: BufferedReader, header: dict) -> list[dict]:
     """Reads and parses the file table. Returns the parsed filedata containing
     all file entries"""
 
@@ -189,7 +194,7 @@ def read_table(bite: FileIO, header):
 # Helpers
 # ==========================
 
-def build_parser():
+def build_parser() -> ArgumentParser:
     """Builds an argparse object containing all relevant cli data"""
 
     parser = ArgumentParser(
@@ -237,6 +242,7 @@ def main():
     try:
         bite = open(args.input, "rb")
         unpack_bite(bite, Path(args.extract_to))
+        _print("Extraction complete!")
     except FileNotFoundError:
         print(f"Unable to open \"{args.input}\"")
         exit(2)
