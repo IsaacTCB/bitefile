@@ -577,7 +577,8 @@ static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry
     bite_file_t* file = (bite_file_t*)malloc(sizeof(*file));
     
     // just in case...
-    if (!file) return NULL;
+    if (!file)
+        return NULL;
 
     memset(file, 0, sizeof(*file));
     file->packed_ref = packed_ref;
