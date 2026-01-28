@@ -1,5 +1,6 @@
 #include <bitefile/bite.h>
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -286,9 +287,13 @@ const char* bite_error_str() {
 // =====================
 
 // Used by bite__packed_find_entry() for selecting
-// filepath sections
-struct bite__string_view {
-    const char* ptr;
+// filepath segments. It's supposed to be used with
+// one of its helper functions, like bite__path_view_next()
+// and bite__path_view_string().
+struct bite__path_view {
+    const char* const src;
+    const size_t src_size;
+    size_t pos;
     size_t size;
 };
 
@@ -299,6 +304,7 @@ static int bite__fread(void* out_ptr, size_t size, FILE* file) {
 }
 
 // Turns out strnlen() isn't standard, so we rewrite it.
+// Returns the length of the string 'str', clamped to 'size'.
 static size_t bite__strnlen(const char* str, size_t size) {
     size_t sz;
     for (sz = 0; sz < size; sz++) {
@@ -440,41 +446,79 @@ static void bite__table_close(bite__table_t* table) {
     table->pool.capacity = 0;
 }
 
-// Checks whether or not the string offset has a path separator.
-// It should return the amount of characters to skip, but that's not yet implemented.
-static inline int bite__path_is_separator(const char* str) {
-    return (*str == '/' /* || *str == '\\' */);
+// Checks whether or not the char is a path separator.
+static inline int bite__path_is_separator(char ch) {
+    return ch == '/';
+}
+
+// Given a properly initialized bite__path_view, find the next valid
+// path segment's position and size, then update their values.
+//
+// To initialize a bite__path_view, you must define 'src' and 'src_size'
+// as the pointer to your string and its length (excluding null-terminator)
+// respectively. Also, 'pos' and 'size' must be 0.
+//
+// Returns 1 if a segment was found, 0 if there are no more segments.
+int bite__path_view_next(struct bite__path_view* path) {
+    // Jump to next separator
+    path->pos += path->size;
+    path->size = 0; // Reset size, as that is now unknown.
+
+    size_t i = path->pos;
+
+    // Fail if out-of-bounds
+    if (i >= path->src_size)
+        return 0;
+
+    // Move out of path separator
+    for (; i < path->src_size; i++) {
+        if (!bite__path_is_separator(path->src[i]))
+            break;
+    }
+
+    // Fail if out-of-bounds
+    if (i >= path->src_size)
+        return 0;
+
+    size_t start = i;
+
+    // Find next separator to determine the size
+    for (; i < path->src_size; i++) {
+        if (bite__path_is_separator(path->src[i]))
+            break;
+    }
+
+    path->pos  = start;
+    path->size = i - start;
+    return 1;
 }
 
 // Finds the first entry that matches with the given filepath.
 // Returns null if no entry was found.
 static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char* filepath) {
-    if (bite__strnlen(filepath, BITE_PATH_MAX_LENGTH) >= BITE_PATH_MAX_LENGTH) {
-        BITE_ERROR_MSG("filepath is too large (strlen(filepath) >= %d)", BITE_PATH_MAX_LENGTH);
+    assert(packed->table.file.entries > 0);
+
+    const size_t path_length = bite__strnlen(filepath, BITE_PATH_MAX_LENGTH);
+    if (path_length >= BITE_PATH_MAX_LENGTH) {
+        BITE_ERROR_MSG("filepath is too long (strlen(filepath) >= %d)", BITE_PATH_MAX_LENGTH);
         return NULL;
     }
-
-    struct bite__string_view part;
-    part.ptr = filepath;
-    part.size = 0;
-    while (bite__path_is_separator(part.ptr)) part.ptr++; // Skip any forward slash from the beginning
-
-    if (packed->table.file.count == 0)
-        return NULL;
 
     bite__entry_t* entry = NULL;
     size_t begin = 0;
     size_t end = packed->table.file.count;
 
-    while (*part.ptr != '\0') {
-        part.size = 0;
+    struct bite__path_view segment = {
+        .src      = filepath,
+        .src_size = path_length,
+        .pos      = 0,
+        .size     = 0,
+    };
 
-        // Count characters until next forward slash or NUL
-        for (const char* ch = part.ptr; *ch != '\0'; ch++) {
-            if (bite__path_is_separator(ch))
-                break;
-            part.size++;
-        }
+    // For every segment for this path...
+    while (bite__path_view_next(&segment)) {
+        const char*  segment_name   = segment.src + segment.pos;
+        const size_t segment_length = segment.size;
 
         // Scan current dir tree for any name match
         int found = 0;
@@ -483,20 +527,20 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
             const char* name_ptr = packed->table.pool.ptr;
             name_ptr += entry->name_pool_offset;
 
-            if (entry->name_length == part.size &&
-                strncmp(part.ptr, name_ptr, part.size) == 0) {
+            if (entry->name_length == segment_length &&
+                strncmp(segment_name, name_ptr, segment_length) == 0) {
                 // Names match
-                if (entry->flags & ENTRY_IS_DIR) { // Is this a directory?
-                    // Enter it
+                if (entry->flags & ENTRY_IS_DIR) {
+                    // This is a directory.
+                    // Enter directory subtree
                     begin = i + 1;
-                    end = i + entry->dir_sibling_offset + 1;
+                    end   = i + entry->dir_sibling_offset + 1;
                     found = 1;
                     break;
-                } else { // Is this a file?
-                    // Does the filepath have any more sections?
-                    part.ptr += part.size;
-                    while (bite__path_is_separator(part.ptr)) part.ptr++;
-                    if (*part.ptr != '\0') {
+                } else {
+                    // This is a file.
+                    // Does the path have any more segments?
+                    if (bite__path_view_next(&segment)) {
                         // If so, then filepath is invalid.
                         BITE_ERROR_MSG(
                             "%s: treats file as if it were a directory.",
@@ -518,13 +562,8 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
             entry = NULL;
             break;
         }
-
-        // Go up a filepath section.
-        part.ptr += part.size;
-        while (bite__path_is_separator(part.ptr)) part.ptr++;
     }
 
-    //printf("Took %d iterations to realize this doesn't exist!\n", (int)iterations);
     if (entry && entry->flags & ENTRY_IS_DIR)
         BITE_ERROR_MSG("%s: is a directory, not a file!", filepath);
     else
