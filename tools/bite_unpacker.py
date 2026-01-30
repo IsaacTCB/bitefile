@@ -20,10 +20,20 @@ def unpack_bite(bite: BufferedReader, extract_path: Path) -> None:
 # Core
 # ==========================
 
+class BiteParsingError(Exception):
+    def __init__(self, message):
+        super.__init__(message)
+
+
+class ExtractionFailure(Exception):
+    def __init__(self, message):
+        super.__init__(message)
+
+
 def extract_tree(
-        bite: BufferedReader,
-        table: list[dict],
-        extract_path: Path
+    bite: BufferedReader,
+    table: list[dict],
+    extract_path: Path
 ) -> None:
     """
     Extracts all files/dirs from the flattened file table tree
@@ -39,7 +49,7 @@ def extract_tree(
         entry = table[i]
 
         if len(dir_stack) > 128:
-            raise Exception("Too many subdirectories! Maybe this .bite is bad?")
+            raise ExtractionFailure("Too many subdirectories! Maybe this .bite is bad?")
 
         # Are we still on the stack's top directory?
         while dir_stack and dir_stack[-1] < i:
@@ -63,9 +73,9 @@ def extract_tree(
                     entry["path"] = dir_nested / entry["name"]  # For printing
                     extract_file(bite, entry, dst)
                 case _:
-                    raise Exception("Invalid tree type")
+                    raise ExtractionFailure("Invalid tree type")
 
-        except Exception as exception:
+        except ExtractionFailure as exception:
             print(f"Unable to parse index at {i}, reason: {exception}.")
 
 
@@ -126,7 +136,7 @@ def read_header(bite: BufferedReader) -> dict:
 
     magic = bite.read(4)
     if magic != b'BITE':
-        raise Exception("File is not a Bite file!")
+        raise BiteParsingError("File is not a Bite file!")
 
     version = read_struct("<H", bite)
     read_struct("<H", bite)  # Skip reserved

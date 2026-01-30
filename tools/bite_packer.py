@@ -43,6 +43,10 @@ def pack_bite(
 # Core
 # ==========================
 
+class UserInputError(Exception):
+    def __init__(self, message):
+        super.__init__(message)
+
 
 class DirTree:
     """
@@ -100,9 +104,9 @@ def write_header(
 
 
 def pack_tree(
-        bite: BufferedWriter,
-        root: DirTree,
-        relative_path: Path = Path()
+    bite: BufferedWriter,
+    root: DirTree,
+    relative_path: Path = Path()
 ) -> list[dict]:
     """
     Packs every containing file inside a root DirTree recursively,
@@ -346,20 +350,20 @@ def parse_input_paths(args: argparse.Namespace) -> list[Path]:
     for path in input_paths:
         # Is this path even valid?
         if not path.exists():
-            raise Exception(
+            raise UserInputError(
                 f"\"{path}\" does not exist!"
             )
         
         # Paths must be resolved beforehand!
         if ".." in path.parts:
-            raise Exception(
+            raise UserInputError(
                 f"\"{path}\": All input paths must be resolved beforehand!"
             )
 
         # For directories, recurse only if that setting is enabled
         if path.is_dir():
             if not args.recursive:
-                raise Exception(
+                raise UserInputError(
                     f"\"{path}\" is a directory! "
                     "Use -r or --recursive for recursive selection."
                 )
@@ -371,14 +375,14 @@ def parse_input_paths(args: argparse.Namespace) -> list[Path]:
         elif path.is_file():
             filtered_paths.append(path)
         else:
-            raise Exception(
+            raise UserInputError(
                 f"\"{path}\" is an invalid path."
             )
 
     filtered_paths = list(set(filtered_paths))  # Remove duplicates
 
     if len(input_paths) == 0:
-        raise Exception("No files to pack!")
+        raise UserInputError("No files to pack!")
 
     return filtered_paths
 
@@ -454,7 +458,7 @@ def main() -> None:
     input_paths = []
     try:
         input_paths = parse_input_paths(args)
-    except Exception as exception:
+    except UserInputError as exception:
         print(exception)
         exit(2)
 
