@@ -5,7 +5,7 @@ Bite file packer
 import argparse
 import struct
 import os
-from io import BufferedWriter
+from io import BufferedWriter, BufferedReader
 from pathlib import Path
 
 
@@ -229,7 +229,7 @@ def pack_file(bite: BufferedWriter, input_path: Path) -> dict:
     }
 
 
-def process_file(file: BufferedWriter) -> None:
+def process_file(file: BufferedReader) -> bytes:
     """
     Processes a file and returns the data to be stored.
     """
@@ -262,7 +262,7 @@ def write_padding(bite: BufferedWriter, alignment: int = 16) -> None:
 
     pad = alignment - (bite.tell() % alignment)
     pad = pad % alignment
-    for i in range(pad):
+    for _ in range(pad):
         write_struct(bite, "b", 0)
 
 
@@ -272,7 +272,7 @@ def write_string(bite: BufferedWriter, string: str) -> None:
     bite.write(encoded)
 
 
-def parser_build() -> None:
+def parser_build() -> argparse.ArgumentParser:
     """
     Builds an argparse object containing all relevant cli data
     """
@@ -329,7 +329,7 @@ def _print(*args):
         print(*args)
 
 
-def parse_input_paths(args: list[str]) -> list[Path]:
+def parse_input_paths(args: argparse.Namespace) -> list[Path]:
     """
     Filters and validate paths based on args.
     Throws exceptions if invalid.

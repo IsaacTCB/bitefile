@@ -90,7 +90,7 @@ def extract_file(bite: BufferedReader, file_entry, dst) -> None:
         _print(f"Extracted {file_entry["path"]}")
 
 
-def read_struct(fmt: str, file: BufferedReader) -> any:
+def read_struct(fmt: str, file: BufferedReader) -> int:
     """
     Wrapper function for reading bytes of files into real numbers.
     """
@@ -194,7 +194,7 @@ def read_table(bite: BufferedReader, header: dict) -> list[dict]:
     # Skip to table offset
     bite.seek(header["file_table_offset"], os.SEEK_SET)
 
-    for i in range(header["file_table_count"]):
+    for _ in range(header["file_table_count"]):
         flags = read_struct("<I", bite)
         if flags & 1:
             entry = read_dir_entry(bite, flags)
