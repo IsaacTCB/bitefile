@@ -38,6 +38,9 @@ def extract_tree(
     for i in range(len(table)):
         entry = table[i]
 
+        if len(dir_stack) > 128:
+            raise Exception("Too many subdirectories! Maybe this .bite is bad?")
+
         # Are we still on the stack's top directory?
         while dir_stack and dir_stack[-1] < i:
             # If not, pop it and update current nested path.
