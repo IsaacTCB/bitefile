@@ -9,10 +9,14 @@ from io import BufferedWriter, BufferedReader
 from pathlib import Path
 
 
-def pack_bite(bite: BufferedWriter, paths: list[Path]):
+def pack_bite(
+    bite: BufferedWriter,
+    paths: list[Path],
+    relative_to: Path
+):
     write_header(bite)  # Write a placeholder bite header
 
-    file_tree = build_file_tree(paths)
+    file_tree = build_file_tree(paths, relative_to)
     if VERBOSE:
         print_file_tree(file_tree)
 
@@ -126,7 +130,7 @@ def pack_tree(
 
     for f in root.files:
         write_padding(bite)
-        entry = pack_file(bite, relative_path / f)
+        entry = pack_file(bite, f)
         table_entries.append((entry))
         sibling += 1
         children += 1
@@ -340,10 +344,6 @@ def parse_input_paths(args: argparse.Namespace) -> list[Path]:
 
     input_paths = [Path(path) for path in args.input]
     for path in input_paths:
-        # Convert path to relative
-        if path.is_absolute():
-            path = path.relative_to(args.relative_to)
-
         # Is this path even valid?
         if not path.exists():
             raise Exception(
@@ -377,9 +377,12 @@ def parse_input_paths(args: argparse.Namespace) -> list[Path]:
     return filtered_paths
 
 
-def build_file_tree(paths: list[Path]) -> DirTree:
+def build_file_tree(paths: list[Path], relative_to: Path) -> DirTree:
     """
     Builds a filesystem tree with the given input paths.
+
+    paths is the list of inputs, may be absolute or not.
+    relative_to specifies what path is used for converting absolute paths into relative paths.
     """
 
     root = DirTree()
@@ -392,14 +395,18 @@ def build_file_tree(paths: list[Path]) -> DirTree:
     ))
 
     for path in paths:
-        parts = path.parts
+        p = path
+        if p.is_absolute():
+            p = p.relative_to(relative_to)
+
+        parts = p.parts
         current_node = root
 
         for part in parts[:-1]:
             current_node = current_node.dirs.setdefault(part, DirTree())
 
         if path.is_file():
-            current_node.files.add(parts[-1])
+            current_node.files.add(path)
         else:
             current_node.dirs.setdefault(parts[-1], DirTree())
 
@@ -418,7 +425,7 @@ def print_file_tree(root: DirTree, indent: int = 0) -> None:
         print_file_tree(root.dirs[d], indent+1)
 
     for f in root.files:
-        print(tab + "- " + f)
+        print(tab + "- " + f.name)
 
 
 # ==========================
@@ -448,7 +455,7 @@ def main() -> None:
     # Open bite file and write to it!
     bite_path = Path(args.output)
     with open(bite_path, "wb") as bite:
-        pack_bite(bite, input_paths)
+        pack_bite(bite, input_paths, args.relative_to)
         _print(f"Generated \"{bite_path}\" successfully!")
 
 
