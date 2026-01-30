@@ -349,6 +349,12 @@ def parse_input_paths(args: argparse.Namespace) -> list[Path]:
             raise Exception(
                 f"\"{path}\" does not exist!"
             )
+        
+        # Paths must be resolved beforehand!
+        if ".." in path.parts:
+            raise Exception(
+                f"\"{path}\": All input paths must be resolved beforehand!"
+            )
 
         # For directories, recurse only if that setting is enabled
         if path.is_dir():
