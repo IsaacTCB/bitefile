@@ -10,30 +10,57 @@
             }
         },
         {
-            "name": "debug",
+            "name": "static_debug",
             "inherits": "default",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_SHARED_LIBS": "OFF"
             },
             "binaryDir": "build/debug"
         },
         {
-            "name": "release",
+            "name": "static_release",
             "inherits": "default",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
+            },
+            "binaryDir": "build/release"
+        },
+        {
+            "name": "shared_debug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_SHARED_LIBS": "OFF"
+            },
+            "binaryDir": "build/debug"
+        },
+        {
+            "name": "shared_release",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_SHARED_LIBS": "ON"
             },
             "binaryDir": "build/release"
         }
     ],
     "buildPresets": [
         {
-            "name": "debug_build",
-            "configurePreset": "debug"
+            "name": "static_debug",
+            "configurePreset": "static_debug"
         },
         {
-            "name": "release_build",
-            "configurePreset": "release"
+            "name": "static_release",
+            "configurePreset": "static_release"
+        },
+        {
+            "name": "shared_debug",
+            "configurePreset": "static_debug"
+        },
+        {
+            "name": "shared_release",
+            "configurePreset": "static_release"
         }
     ]
 }

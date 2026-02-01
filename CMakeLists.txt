@@ -24,11 +24,31 @@ else()
     )
 endif()
 
+include(GNUInstallDirs)
+
 target_include_directories(
     bitefile
     PUBLIC
-    $<INSTALL_INTERFACE:include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+install(
+    TARGETS bitefile
+    EXPORT bitefile
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(
+    DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(
+    EXPORT bitefile
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bitefile
+    NAMESPACE bitefile::
 )
 
 if(BITEFILE_BUILD_EXAMPLES)
