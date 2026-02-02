@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (c) 2026-present IsaacTCB
+// Licensed under the MIT License
+
 #ifndef BITE_IMPL_H
 #define BITE_IMPL_H
 

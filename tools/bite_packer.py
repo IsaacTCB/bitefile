@@ -1,5 +1,10 @@
 """
+
 Bite file packer
+
+Copyright (c) 2026-present IsaacTCB
+Licensed under the MIT License
+
 """
 
 import argparse

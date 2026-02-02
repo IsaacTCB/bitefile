@@ -1,3 +1,5 @@
+## SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.11)
 
 project(bitefile VERSION 1.0.0 LANGUAGES C)

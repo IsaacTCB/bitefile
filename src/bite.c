@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: MIT
+//
+// Copyright (c) 2026-present IsaacTCB
+// Licensed under the MIT License
+
 #include <bitefile/bite.h>
 
 #include <assert.h>
