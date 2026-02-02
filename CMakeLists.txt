@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(bitefile LANGUAGES C)
+project(bitefile VERSION 1.0.0 LANGUAGES C)
 
 option(BITEFILE_BUILD_EXAMPLES "Build example projects" ${PROJECT_IS_TOP_LEVEL})
 option(BITEFILE_BUILD_SHARED "Build bitefile as a shared library"
@@ -47,8 +47,29 @@ install(
 
 install(
     EXPORT bitefile
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bitefile
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bitefile-${PROJECT_VERSION}
     NAMESPACE bitefile::
+)
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    "${PROJECT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
+    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bitefile-${PROJECT_VERSION}
+)
+
+write_basic_package_version_file(
+    "${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION},
+    COMPATIBILITY SameMajorVersion
+)
+
+install(
+    FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bitefile-${PROJECT_VERSION}
 )
 
 if(BITEFILE_BUILD_EXAMPLES)
