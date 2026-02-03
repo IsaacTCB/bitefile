@@ -292,7 +292,7 @@ def parser_build() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog="bite_packer",
-        description="Packs multiple files into one monolith wad-like file.",
+        description="Packs multiple files into one monolithic bite file.",
     )
     parser.add_argument(
         "input",
