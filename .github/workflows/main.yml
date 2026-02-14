@@ -26,7 +26,6 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         preset: [static_release]
         c_compiler: [gcc, clang, cl]
-        generator: [Ninja, Visual Studio 17 2022]
         include:
           - os: windows-latest
             c_compiler: cl
@@ -45,12 +44,8 @@ jobs:
             c_compiler: gcc
           - os: windows-latest
             c_compiler: clang
-          - os: windows-latest
-            generator: Ninja
           - os: ubuntu-latest
             c_compiler: cl
-          - os: ubuntu-latest
-            generator: Visual Studio 17 2022
 
     steps:
     - uses: actions/checkout@v4
