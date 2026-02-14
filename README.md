@@ -24,9 +24,7 @@ have been employed (although I'm open to the idea of implementing an opt-in
 per-file compression solution).
 
 Bite internally stores data offset and sizes using 64-bit values, meaning
-that it can store files up to 16 EiB in theory, but in practice you will
-run into issues when opening bite files that are larger than 2 GiB, since
-*bitefile* currently relies on the standard 32-bit stdio file operations.
+that it can store files up to 8 EiB in theory.
 
 Paths are internally stored
 as a flattened tree hierarchy that represents each directory as a branch
@@ -63,11 +61,11 @@ void load_data_from_bite() {
         // Reading data
         char buffer[64];
         bite_fread(buffer, sizeof(buffer), file); // Load the first 64 bytes
-        
+
         // File control stuff
         bite_fseek(file, 0, SEEK_END); // Skip to file end
-        size_t pos = bite_ftell(file); // Tell file cursor position
-        
+        bite_offset_t pos = bite_ftell(file); // Tell file cursor position
+
         // Close file
         bite_fclose(file);
     }
@@ -107,7 +105,6 @@ These are some of the missing features that I would like to implement/do in
 the future:
 
 - Ability to specify callback functions for `bite_packed_open()`.
-- Add support for 64-bit fseek/ftell extensions.
 - API for listing all files/dirs in a directory (like dirent.h, perhaps?)
 - Allow interaction with multiple packed files using a single packed_file_t* handle.
 - Per-file compression.
