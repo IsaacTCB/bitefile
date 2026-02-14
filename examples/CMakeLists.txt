@@ -12,6 +12,7 @@ set(pack_output "${working_dir}/data.bite")
 
 set(example_assets)
 foreach(example_dir ${example_dirs})
+
     set(example_name ${example_dir})
     file(GLOB sources ${example_dir}/*.c)
 
@@ -20,6 +21,8 @@ foreach(example_dir ${example_dirs})
 
     add_executable(${example_dir} ${sources})
     target_link_libraries(${example_name} PRIVATE bitefile)
+
+    message(STATUS "Add example target: ${example_name}")
 endforeach()
 
 # =========================
@@ -29,12 +32,6 @@ endforeach()
 # Warning: this code's a mess, but it works so whatever
 find_package(Python QUIET COMPONENTS Interpreter)
 if(Python_FOUND)
-    # Copy assets to project folder for easier access
-    # file(
-    #     COPY ${example_assets}
-    #     DESTINATION ${pack_dir}
-    # )
-
     # Command for generating the bitefile
     add_custom_command(
         OUTPUT ${pack_output}
@@ -58,8 +55,10 @@ if(Python_FOUND)
     add_custom_target(example_pack_assets ALL
         DEPENDS ${pack_output}
     )
+    message(STATUS "Add custom target: data.bite")
 else()
     message(
-        "No Python interpreter was found, the example Bite won't get generated!"
+        WARNING
+        "Python interpreter not found, the example Bite won't get generated!"
     )
 endif()
