@@ -30,9 +30,9 @@ run into issues when opening bite files that are larger than 2 GiB, since
 
 Paths are internally stored
 as a flattened tree hierarchy that represents each directory as a branch
-which may or not contain files or other directories. This greatly reduces
-the amount of `strncmp` calls needed to identify where a specific file
-entry is located given a path.
+which may or not contain files or other directories. This approach greatly
+reduces the amount of `strncmp` calls needed to identify where a specific
+file entry is located given a path.
 
 That being said, Bite isn't anything too fancy, really. It contains a basic
 header and a file metadata table that points into the uncompressed raw
