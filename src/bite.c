@@ -298,7 +298,7 @@ bite_offset_t bite_ftell(bite_file_t* file) {
 int bite_fseek(bite_file_t* file, bite_offset_t offset, int whence) {
     if (!file) {
         BITE_ERROR_MSG("bite_fseek(): file handle is NULL");
-        return 0;
+        return -1;
     }
 
     if (offset < BITE_OFFSET_MIN && offset > BITE_OFFSET_MAX) {
