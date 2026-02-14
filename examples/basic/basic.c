@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
         printf("Found file '%s'!\n", bite_fname(file));
 
         // Get size using the Bite way.
-        size_t len = bite_fsize(file);
+        bite_size_t len = bite_fsize(file);
 
         if (len > 0) {
             char* buffer = malloc(len+1);
@@ -50,10 +50,10 @@ int main(int argc, char* argv[]) {
     if (file) {
         printf("Found file '%s'!\n", bite_fname(file));
 
-        // Get size using the std way.
+        // Get size using the standard way.
         int status = bite_fseek(file, 0, SEEK_END);
         assert(status == 0);
-        size_t len = bite_ftell(file);
+        bite_size_t len = (bite_size_t)bite_ftell(file);
         status = bite_fseek(file, 0, SEEK_SET);
         assert(status == 0);
 

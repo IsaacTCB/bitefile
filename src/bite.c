@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #define BITE_FILE_MAGIC (1163151682) /* BITE, in ASCII */
 #define BITE_FILE_VERSION (1)
@@ -29,6 +30,20 @@ static char error_text_buffer[BITE_ERROR_MSG_SIZE];
 // Convenience function for printing to the error text buffer.
 #define BITE_ERROR_MSG(...) (snprintf(error_text_buffer, BITE_ERROR_MSG_SIZE, __VA_ARGS__))
 
+#if defined(BITEFILE_LARGE_FILES)
+typedef int64_t bite__impl_size_t;
+typedef int64_t bite__impl_offset_t;
+#define BITE_SIZE_MAX (INT64_MAX)
+#define BITE_OFFSET_MAX (INT64_MAX)
+#define BITE_OFFSET_MIN (INT64_MIN)
+#else
+typedef int32_t bite__impl_size_t;
+typedef int32_t bite__impl_offset_t;
+#define BITE_SIZE_MAX (INT32_MAX)
+#define BITE_OFFSET_MAX (INT32_MAX)
+#define BITE_OFFSET_MIN (INT32_MIN)
+#endif
+
 typedef enum {
     BITE_OK = 0,
     BITE_ERR_GENERIC = 1,  // For any kind of error not in this list
@@ -38,15 +53,16 @@ typedef enum {
     BITE_ERR_INCOMPATIBLE, // Incompatible version
     BITE_ERR_MALFORMED,    // Malformed file
     BITE_ERR_BAD_ALLOC,    // Error on allocation
+    BITE_ERR_TOO_LARGE,    // File is too large
 } bite__status_e;
 
 typedef struct {
     uint32_t magic; // Should spell BITE in ASCII
     uint16_t version;
     uint16_t reserved_1;
-    uint64_t file_entry_offset;
+    bite__impl_offset_t file_entry_offset;
     uint32_t file_entry_count;
-    uint64_t file_data_start_offset;
+    bite__impl_offset_t file_data_start_offset;
     uint32_t reserved_2;
 } bite__header_t;
 
@@ -59,14 +75,14 @@ typedef struct {
     uint32_t flags; // Represented by bite__entry_flags_e
     union {
         struct {
-            uint64_t data_offset; // Is 0 for empty files
+            bite__impl_offset_t data_offset; // Is 0 for empty files
         };
         struct {
             uint32_t dir_sibling_offset;
             uint32_t dir_children_count; 
         };
     };
-    uint64_t data_size;
+    bite__impl_size_t data_size;
     uint32_t reserved;
     size_t   name_pool_offset;
     size_t   name_length;
@@ -95,14 +111,14 @@ struct bite_packed {
 struct bite_file {
     bite_packed_t* packed_ref; // Weak ref, packed is responsible for closing itself
     bite__entry_t* entry_ref; // Same as above
-    size_t pos;
+    bite__impl_offset_t pos;
 };
 
 // ===================
 // Public
 // ===================
 
-static int bite__fread(void* out_ptr, size_t size, FILE* file);
+static int bite__fread(void* out_ptr, bite__impl_size_t size, FILE* file);
 static bite__status_e bite__header_read(bite__header_t* header, FILE* file);
 static bite__status_e bite__entry_read(bite__entry_t* entry, FILE* file);
 static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* header, FILE* file);
@@ -201,17 +217,17 @@ void bite_fclose(bite_file_t* file) {
 }
 
 // Returns the total file size of the virtual file
-size_t bite_fsize(bite_file_t* file) {
+bite_size_t bite_fsize(bite_file_t* file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fsize(): file handle is NULL");
         return 0;
     } 
 
-    return file->entry_ref->data_size;
+    return (bite_size_t)file->entry_ref->data_size;
 }
 
 // Reads size of data into the destination buffer from the virtual file
-size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
+bite_size_t bite_fread(void* dst, bite_size_t size, bite_file_t* file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fread(): file handle is NULL");
         return 0;
@@ -225,16 +241,17 @@ size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
     }
 
     FILE* handle = file->packed_ref->handle;
-    fseek(handle, (long)(entry->data_offset + file->pos), SEEK_SET);
+    fseek(handle, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
 
     // Limit reading size
-    if (file->pos + size >= entry->data_size) {
-        size = entry->data_size - file->pos;
+    bite__impl_size_t to_read = (bite__impl_size_t)size;
+    if (file->pos + to_read >= entry->data_size) {
+        to_read = entry->data_size - file->pos;
     }
 
-    file->pos += size;
+    file->pos += to_read;
     if (size != 0) {
-        int result = bite__fread(dst, size, handle);
+        int result = bite__fread(dst, to_read, handle);
         if (!result) {
             return 0;
         }
@@ -244,7 +261,7 @@ size_t bite_fread(void* dst, size_t size, bite_file_t* file) {
 }
 
 // Returns the virtual file's current cursor position
-size_t bite_ftell(bite_file_t* file) {
+bite_offset_t bite_ftell(bite_file_t* file) {
     if (!file) {
         BITE_ERROR_MSG("bite_ftell(): file handle is NULL");
         return 0;
@@ -253,29 +270,35 @@ size_t bite_ftell(bite_file_t* file) {
 }
 
 // Seeks into a specific point depending on a whence
-int bite_fseek(bite_file_t* file, long offset, int whence) {
+int bite_fseek(bite_file_t* file, bite_offset_t offset, int whence) {
     if (!file) {
         BITE_ERROR_MSG("bite_fseek(): file handle is NULL");
         return 0;
     }
 
-    size_t pos = 0;
+    if (offset < BITE_OFFSET_MIN && offset > BITE_OFFSET_MAX) {
+        BITE_ERROR_MSG("bite_fseek(): offset is too large. Enabling BITEFILE_LARGE_FILES might solve this.");
+        return -1;
+    }
+
+    bite__impl_offset_t pos = 0;
 
     switch (whence) {
         case SEEK_SET:
-            pos = offset;
+            pos = (bite__impl_offset_t)offset;
             break;
         case SEEK_CUR:
-            pos = file->pos + offset;
+            pos = file->pos + (bite__impl_offset_t)offset;
             break;
         case SEEK_END:
-            pos = file->entry_ref->data_size + offset;
+            pos = (bite__impl_offset_t)(file->entry_ref->data_size)
+                + (bite__impl_offset_t)offset;
             break;
         default:
             return -1;
     }
 
-    if (pos > file->entry_ref->data_size) {
+    if (pos > (bite__impl_offset_t)file->entry_ref->data_size) {
         return -1;
     }
 
@@ -305,11 +328,9 @@ struct bite__path_view {
     size_t size;
 };
 
-/*
- * Raw usage of this function should be avoided unless strictly needed;
- * Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
- */
-static int bite__fread(void* out_ptr, size_t size, FILE* file) {
+// Raw usage of this function should be avoided unless strictly needed;
+// Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
+static int bite__fread(void* out_ptr, bite__impl_size_t size, FILE* file) {
     return fread(out_ptr, size, 1, file) == 1;
 }
 
@@ -339,15 +360,30 @@ static bite__status_e bite__header_read(bite__header_t* header, FILE* file) {
     }
 
     BITE_IMPL_READ(&(header->reserved_1), file);
-    BITE_IMPL_READ(&(header->file_entry_offset), file);
+
+    uint64_t temp;
+    BITE_IMPL_READ(&temp, file);
+    if (temp > BITE_OFFSET_MAX) {
+        return BITE_ERR_TOO_LARGE;
+    }
+    header->file_entry_offset = (bite__impl_offset_t)temp;
+
     BITE_IMPL_READ(&(header->file_entry_count), file);
-    BITE_IMPL_READ(&(header->file_data_start_offset), file);
+
+    BITE_IMPL_READ(&temp, file);
+    if (temp > BITE_OFFSET_MAX) {
+        return BITE_ERR_TOO_LARGE;
+    }
+    header->file_data_start_offset = (bite__impl_offset_t)temp;
+
     BITE_IMPL_READ(&(header->reserved_2), file);
 
     return BITE_OK;
 }
 
 static bite__status_e bite__entry_read(bite__entry_t* entry, FILE* file) {
+    uint64_t temp;
+
     BITE_IMPL_READ(&(entry->flags), file);
     // Is this a dir entry?
     if (entry->flags & ENTRY_IS_DIR) {
@@ -356,9 +392,19 @@ static bite__status_e bite__entry_read(bite__entry_t* entry, FILE* file) {
     }
     // This is a file entry?
     else {
-        BITE_IMPL_READ(&(entry->data_offset), file);
+        BITE_IMPL_READ(&temp, file);
+        if (temp > BITE_OFFSET_MAX) {
+            return BITE_ERR_TOO_LARGE;
+        }
+        entry->data_offset = (bite__impl_offset_t)temp;
     }
-    BITE_IMPL_READ(&(entry->data_size), file);
+
+    BITE_IMPL_READ(&temp, file);
+    if (temp > BITE_SIZE_MAX) {
+        return BITE_ERR_TOO_LARGE;
+    }
+    entry->data_size = (bite__impl_size_t)temp;
+
     BITE_IMPL_READ(&(entry->reserved), file);
 
     return BITE_OK;
@@ -431,7 +477,7 @@ static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* hea
             //printf("reallocated %zu bytes for name pool\n", table->pool.capacity);
         }
 
-        bite__fread(&table->pool.ptr[entry->name_pool_offset], entry->name_length, file);
+        bite__fread(&table->pool.ptr[entry->name_pool_offset], (bite__impl_size_t)entry->name_length, file);
         table->pool.ptr[entry->name_pool_offset + entry->name_length] = '\0';
         table->pool.size += name_size;
 

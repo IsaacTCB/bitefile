@@ -5,9 +5,8 @@ cmake_minimum_required(VERSION 3.11)
 project(bitefile VERSION 1.0.0 LANGUAGES C)
 
 option(BITEFILE_BUILD_EXAMPLES "Build example projects" ${PROJECT_IS_TOP_LEVEL})
-option(BITEFILE_BUILD_SHARED "Build bitefile as a shared library"
-    ${BUILD_SHARED_LIBS}
-)
+option(BITEFILE_BUILD_SHARED "Build bitefile as a shared library" ${BUILD_SHARED_LIBS})
+option(BITEFILE_LARGE_FILES "Enable reading files larger than 2GiB" ON)
 
 set(BITEFILE_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tools")
 
@@ -23,6 +22,12 @@ else()
     add_compile_definitions(TARGET bitefile
         PRIVATE $<BUILD_INTERFACE:BITEFILE_BUILD_LIB>
         INTERFACE $<BUILD_INTERFACE:BITEFILE_USE_SHARED>
+    )
+endif()
+
+if(BITEFILE_LARGE_FILES)
+    add_compile_definitions(TARGET bitefile
+        PRIVATE BITEFILE_LARGE_FILES
     )
 endif()
 
