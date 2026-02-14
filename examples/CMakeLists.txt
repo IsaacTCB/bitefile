@@ -3,6 +3,7 @@ project(examples)
 set(example_dirs
     basic
     utf8
+    multiple_files
 )
 
 set(working_dir ${CMAKE_CURRENT_BINARY_DIR})

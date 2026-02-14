@@ -1,0 +1,3 @@
+The second file.
+
+This should be opened at the same time.
