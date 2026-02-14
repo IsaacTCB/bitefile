@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-//
-// Copyright (c) 2026-present IsaacTCB
-// Licensed under the MIT License
+/*
+ * Copyright (c) 2026-present IsaacTCB
+ * Licensed under the MIT License
+ */
 
 #include <bitefile/bite.h>
 
@@ -291,10 +292,12 @@ const char* bite_error_str() {
 // Private
 // =====================
 
-// Used by bite__packed_find_entry() for selecting
-// filepath segments. It's supposed to be used with
-// one of its helper functions, like bite__path_view_next()
-// and bite__path_view_string().
+/*
+ * Used by bite__packed_find_entry() for selecting
+ * filepath segments. It's supposed to be used with
+ * one of its helper functions, like bite__path_view_next()
+ * and bite__path_view_string().
+ */
 struct bite__path_view {
     const char* const src;
     const size_t src_size;
@@ -302,14 +305,18 @@ struct bite__path_view {
     size_t size;
 };
 
-// Raw usage of this function should be avoided unless strictly needed;
-// Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
+/*
+ * Raw usage of this function should be avoided unless strictly needed;
+ * Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
+ */
 static int bite__fread(void* out_ptr, size_t size, FILE* file) {
     return fread(out_ptr, size, 1, file) == 1;
 }
 
-// Turns out strnlen() isn't standard, so we rewrite it.
-// Returns the length of the string 'str', clamped to 'size'.
+/*
+ * Turns out strnlen() isn't standard, so we rewrite it.
+ * Returns the length of the string 'str', clamped to 'size'.
+ */
 static size_t bite__strnlen(const char* str, size_t size) {
     size_t sz;
     for (sz = 0; sz < size; sz++) {
@@ -383,9 +390,11 @@ static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* hea
         bite__entry_t* entry = table->file.entries + i;
         status = bite__entry_read(entry, file);
 
-        // Stored strings are variable length.
-        // First comes length (2 bytes), then afterwards
-        // is a continuous ASCII/UTF-8 string (not null-terminated)
+        /*
+         * Stored strings are variable length.
+         * First comes length (2 bytes), then afterwards
+         * is a continuous ASCII/UTF-8 string (not null-terminated)
+         */
 
         // load name
         entry->name_pool_offset = table->pool.size;
@@ -456,14 +465,16 @@ static inline int bite__path_is_separator(char ch) {
     return ch == '/';
 }
 
-// Given a properly initialized bite__path_view, find the next valid
-// path segment's position and size, then update their values.
-//
-// To initialize a bite__path_view, you must define 'src' and 'src_size'
-// as the pointer to your string and its length (excluding null-terminator)
-// respectively. Also, 'pos' and 'size' must be 0.
-//
-// Returns 1 if a segment was found, 0 if there are no more segments.
+/*
+ * Given a properly initialized bite__path_view, find the next valid
+ * path segment's position and size, then update their values.
+ *
+ * To initialize a bite__path_view, you must define 'src' and 'src_size'
+ * as the pointer to your string and its length (excluding null-terminator)
+ * respectively. Also, 'pos' and 'size' must be 0.
+ *
+ * Returns 1 if a segment was found, 0 if there are no more segments.
+ */
 int bite__path_view_next(struct bite__path_view* path) {
     // Jump to next separator
     path->pos += path->size;
@@ -498,8 +509,10 @@ int bite__path_view_next(struct bite__path_view* path) {
     return 1;
 }
 
-// Finds the first entry that matches with the given filepath.
-// Returns null if no entry was found.
+/*
+ * Finds the first entry that matches with the given filepath.
+ * Returns null if no entry was found.
+ */
 static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char* filepath) {
     assert(packed->table.file.entries > 0);
 

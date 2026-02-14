@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-//
-// Copyright (c) 2026-present IsaacTCB
-// Licensed under the MIT License
+/*
+ * Copyright (c) 2026-present IsaacTCB
+ * Licensed under the MIT License
+ */
 
 #ifndef BITE_IMPL_H
 #define BITE_IMPL_H
@@ -13,9 +14,10 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-// If you are linking this lib as a dynamic lib,
-// then make BITEFILE_USE_SHARED is defined!
-
+/*
+ * If you are linking this lib as a dynamic lib,
+ * then make BITEFILE_USE_SHARED is defined!
+ */
 #if defined(_WIN32)
     // Building as dynamic lib on Windows
     #if defined(BITEFILE_BUILD_LIB)
