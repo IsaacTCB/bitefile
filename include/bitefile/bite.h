@@ -33,7 +33,7 @@ extern "C" {
     #endif
 #endif
 
-#ifndef BITE_API
+#if !defined(BITE_API)
 #define BITE_API
 #endif
 
