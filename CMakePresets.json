@@ -48,19 +48,23 @@
     "buildPresets": [
         {
             "name": "static_debug",
-            "configurePreset": "static_debug"
+            "configurePreset": "static_debug",
+            "configuration": "Debug"
         },
         {
             "name": "static_release",
-            "configurePreset": "static_release"
+            "configurePreset": "static_release",
+            "configuration": "Release"
         },
         {
             "name": "shared_debug",
-            "configurePreset": "static_debug"
+            "configurePreset": "shared_debug",
+            "configuration": "Debug"
         },
         {
             "name": "shared_release",
-            "configurePreset": "static_release"
+            "configurePreset": "shared_release",
+            "configuration": "Release"
         }
     ]
 }
