@@ -265,24 +265,26 @@ bite_size_t bite_fread(void* dst, bite_size_t size, bite_file_t* file) {
         file->pos = entry->data_size;
     }
 
-    FILE* handle = file->packed_ref->handle;
-    fseek_64(handle, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
-
     // Limit reading size
     bite__impl_size_t to_read = (bite__impl_size_t)size;
-    if (file->pos + to_read >= entry->data_size) {
+    if (file->pos >= entry->data_size) {
+        to_read = 0;
+    } else if (file->pos + to_read >= entry->data_size) {
         to_read = entry->data_size - file->pos;
     }
 
     file->pos += to_read;
-    if (size != 0) {
+    if (to_read != 0) {
+        FILE* handle = file->packed_ref->handle;
+        fseek_64(handle, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
+
         int result = bite__fread(dst, to_read, handle);
         if (!result) {
             return 0;
         }
     }
 
-    return size;
+    return to_read;
 }
 
 // Returns the virtual file's current cursor position
