@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
             char* buffer = malloc(len+1);
             len = bite_fread(buffer, len, file);
             buffer[len] = '\0';
-            printf("Read %ld bytes\n%s\n", len, buffer);
+            printf("Read %zd bytes\n%s\n", len, buffer);
             free(buffer);
         }
 
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
             char* buffer = malloc(len+1);
             len = bite_fread(buffer, len, file);
             buffer[len] = '\0';
-            printf("Read %ld bytes\n%s\n", len, buffer);
+            printf("Read %zd bytes\n%s\n", len, buffer);
             free(buffer);
         }
 
