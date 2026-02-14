@@ -6,12 +6,16 @@
 
 #include <bitefile/bite.h>
 
+#if defined(BITEFILE_LARGE_FILES)
+#define _FILE_OFFSET_BITS 64
+#endif
+
 #include <assert.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 
 #define BITE_FILE_MAGIC (1163151682) /* BITE, in ASCII */
 #define BITE_FILE_VERSION (1)
@@ -42,6 +46,27 @@ typedef int32_t bite__impl_offset_t;
 #define BITE_SIZE_MAX (INT32_MAX)
 #define BITE_OFFSET_MAX (INT32_MAX)
 #define BITE_OFFSET_MIN (INT32_MIN)
+#endif
+
+/*
+ * Determines what fseek/ftell functions to use on 64-bit
+ *
+ * todo: move this into a separate file
+ * and write a proper function for this
+ */
+#if defined(BITEFILE_LARGE_FILES)
+#if defined(_WIN32)
+    #define ftell_64 (_ftelli64)
+    #define fseek_64 (_fseeki64)
+#elif defined(__GNUC__)
+    #define ftell_64 (ftello)
+    #define fseek_64 (fseeko)
+#endif
+#endif
+// If all of those checks failed, then fallback to standard functions.
+#if !defined(ftell_64) || !defined(fseek_64)
+#define ftell_64 (ftell)
+#define fseek_64 (fseek)
 #endif
 
 typedef enum {
@@ -241,7 +266,7 @@ bite_size_t bite_fread(void* dst, bite_size_t size, bite_file_t* file) {
     }
 
     FILE* handle = file->packed_ref->handle;
-    fseek(handle, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
+    fseek_64(handle, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
 
     // Limit reading size
     bite__impl_size_t to_read = (bite__impl_size_t)size;
@@ -298,7 +323,7 @@ int bite_fseek(bite_file_t* file, bite_offset_t offset, int whence) {
             return -1;
     }
 
-    if (pos > (bite__impl_offset_t)file->entry_ref->data_size) {
+    if (pos < 0 || pos > (bite__impl_offset_t)file->entry_ref->data_size) {
         return -1;
     }
 
@@ -425,10 +450,10 @@ static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* hea
     table->pool.ptr = (char*)malloc(table->pool.capacity);
     if (!table->pool.ptr) return BITE_ERR_BAD_ALLOC;
     table->pool.size = 0;
-    
+
     // Skip to file entry offset
-    long old_pos = ftell(file);
-    if (fseek(file, (long)header->file_entry_offset, SEEK_SET) != 0) {
+    bite__impl_offset_t old_pos = (bite__impl_offset_t)ftell_64(file);
+    if (fseek_64(file, header->file_entry_offset, SEEK_SET) != 0) {
         return BITE_ERR_MALFORMED;
     }
 
@@ -487,7 +512,7 @@ static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* hea
         }
     }
 
-    fseek(file, old_pos, SEEK_SET);
+    fseek_64(file, old_pos, SEEK_SET);
     return BITE_OK;
 }
 
