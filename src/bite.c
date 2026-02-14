@@ -25,7 +25,7 @@
 #define BITE_ERROR_MSG_SIZE (256)
 static char error_text_buffer[BITE_ERROR_MSG_SIZE];
 
-// Convinience function for printing to the error text buffer.
+// Convenience function for printing to the error text buffer.
 #define BITE_ERROR_MSG(...) (snprintf(error_text_buffer, BITE_ERROR_MSG_SIZE, __VA_ARGS__))
 
 typedef enum {
