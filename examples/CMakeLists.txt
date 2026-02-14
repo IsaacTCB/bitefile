@@ -48,6 +48,8 @@ if(Python_FOUND)
         --output ${pack_output}
         ${pack_dir}
 
+        COMMENT "Packing all example assets into data.bite"
+
         VERBATIM
     )
 
