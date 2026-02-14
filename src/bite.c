@@ -273,10 +273,10 @@ bite_size_t bite_fread(void* dst, bite_size_t size, bite_file_t* file) {
         to_read = entry->data_size - file->pos;
     }
 
-    file->pos += to_read;
     if (to_read != 0) {
         FILE* handle = file->packed_ref->handle;
         fseek_64(handle, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
+        file->pos += to_read;
 
         int result = bite__fread(dst, to_read, handle);
         if (!result) {
