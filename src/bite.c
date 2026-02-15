@@ -127,6 +127,7 @@ typedef struct {
 
 // Bite packed archive handle
 struct bite_packed {
+    char path[BITE_PATH_MAX_LENGTH];
     FILE* handle;
     bite__header_t header;
     bite__table_t table;
@@ -136,6 +137,7 @@ struct bite_packed {
 struct bite_file {
     bite_packed_t* packed_ref; // Weak ref, packed is responsible for closing itself
     bite__entry_t* entry_ref; // Same as above
+    void* handle_override;
     bite__impl_offset_t pos;
 };
 
@@ -143,6 +145,7 @@ struct bite_file {
 // Public
 // ===================
 
+static size_t bite__strnlen(const char* str, size_t size);
 static int bite__fread(void* out_ptr, bite__impl_size_t size, FILE* file);
 static bite__status_e bite__header_read(bite__header_t* header, FILE* file);
 static bite__status_e bite__entry_read(bite__entry_t* entry, FILE* file);
@@ -154,6 +157,12 @@ static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry
 // Open a bite packed archive using the filepath
 bite_packed_t* bite_packed_open(const char* filepath) {
     bite_packed_t* packed = NULL;
+
+    size_t path_size = bite__strnlen(filepath, BITE_PATH_MAX_LENGTH);
+    if (path_size >= BITE_PATH_MAX_LENGTH) {
+        BITE_ERROR_MSG("Filepath is too large!\n");
+        return NULL;
+    }
 
     FILE* file = fopen(filepath, "rb");
     if (file == NULL) {
@@ -169,6 +178,8 @@ bite_packed_t* bite_packed_open(const char* filepath) {
     }
 
     memset(packed, 0, sizeof(*packed));
+    strncpy(packed->path, filepath, path_size);
+    packed->path[BITE_PATH_MAX_LENGTH-1] = '\0';
     packed->handle = file;
 
     bite__status_e status = bite__header_read(&packed->header, file);
@@ -238,6 +249,13 @@ void bite_fclose(bite_file_t* file) {
         BITE_ERROR_MSG("bite_fclose(): file handle is NULL");
         return;
     }
+
+    // Close any dupped file handles
+    if (file->handle_override) {
+        fclose(file->handle_override);
+        file->handle_override = NULL;
+    }
+
     free(file);
 }
 
@@ -331,6 +349,37 @@ int bite_fseek(bite_file_t* file, bite_offset_t offset, int whence) {
 
     file->pos = pos;
     return 0;
+}
+
+/*
+ * Creates a copy of a bite_file_t* under a new file handle.
+ * Meant for easy multi-threaded operations under the same bite_packed* file.
+ */
+bite_file_t* bite_fdup(bite_file_t* file) {
+    if (!file) {
+        BITE_ERROR_MSG("bite_fdup(): file handle is NULL");
+        return NULL;
+    }
+
+    bite_file_t* dup = bite__file_open_entry(file->packed_ref, file->entry_ref);
+    if (!dup) {
+        BITE_ERROR_MSG("bite_fdup() -> %s: unable to allocate bite_file_t handle.",
+                       file->packed_ref->path);
+        return NULL;
+    }
+
+    // Reopen file
+    FILE* new_handle = fopen(file->packed_ref->path, "rb");
+    if (new_handle == NULL) {
+        BITE_ERROR_MSG("bite_fdup(): Unable to reopen \"%s\"\n",
+                       file->packed_ref->path);
+        bite_fclose(dup);
+        return NULL;
+    }
+
+    dup->pos = file->pos;
+    dup->handle_override = new_handle;
+    return dup;
 }
 
 // Returns the a string containing the error info
@@ -674,6 +723,7 @@ static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry
     memset(file, 0, sizeof(*file));
     file->packed_ref = packed_ref;
     file->entry_ref = entry_ref;
+    file->handle_override = NULL;
     file->pos = 0;
     return file;
 }

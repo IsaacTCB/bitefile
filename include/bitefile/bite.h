@@ -55,6 +55,7 @@ BITE_API bite_size_t   bite_fsize(bite_file_t* file);
 BITE_API bite_size_t   bite_fread(void* dst, bite_size_t size, bite_file_t* file);
 BITE_API bite_offset_t bite_ftell(bite_file_t* file);
 BITE_API int           bite_fseek(bite_file_t* file, bite_offset_t pos, int whence);
+BITE_API bite_file_t*  bite_fdup(bite_file_t* file);
 BITE_API void          bite_fclose(bite_file_t* file);
 
 // Error handling
