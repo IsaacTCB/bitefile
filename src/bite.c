@@ -353,7 +353,7 @@ int bite_fseek(bite_file_t* file, bite_offset_t offset, int whence) {
 
 /*
  * Creates a copy of a bite_file_t* under a new file handle.
- * Meant for easy multi-threaded operations under the same bite_packed* file.
+ * Allows for safer multi-threaded operations when using a shared bite_packed_t* file.
  */
 bite_file_t* bite_fdup(bite_file_t* file) {
     if (!file) {
