@@ -135,8 +135,8 @@ struct bite_packed {
 
 // Virtual file handle
 struct bite_file {
-    bite_packed_t* packed_ref; // Weak ref, packed is responsible for closing itself
-    bite__entry_t* entry_ref; // Same as above
+    const bite_packed_t* packed_ref; // Weak ref, packed is responsible for closing itself
+    const bite__entry_t* entry_ref; // Same as above
     void* handle_override;
     bite__impl_offset_t pos;
 };
@@ -151,8 +151,8 @@ static bite__status_e bite__header_read(bite__header_t* header, FILE* file);
 static bite__status_e bite__entry_read(bite__entry_t* entry, FILE* file);
 static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* header, FILE* file);
 static void bite__table_close(bite__table_t* table);
-static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char* filepath);
-static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry_t* entry_ref);
+static const bite__entry_t* bite__packed_find_entry(const bite_packed_t* packed, const char* filepath);
+static bite_file_t* bite__file_open_entry(const bite_packed_t* packed_ref, const bite__entry_t* entry_ref);
 
 // Open a bite packed archive using the filepath
 bite_packed_t* bite_packed_open(const char* filepath) {
@@ -214,13 +214,13 @@ void bite_packed_close(bite_packed_t* packed) {
 }
 
 // Finds and opens a virtual file inside of the packed file
-bite_file_t* bite_fopen(bite_packed_t* packed, const char* filepath) {
+bite_file_t* bite_fopen(const bite_packed_t* packed, const char* filepath) {
     if (!packed) {
         BITE_ERROR_MSG("bite_fopen() -> %s: Packed handle is NULL! Maybe it wasn't properly initialized?", filepath);
         return NULL;
     }
 
-    bite__entry_t* entry = bite__packed_find_entry(packed, filepath);
+    const bite__entry_t* entry = bite__packed_find_entry(packed, filepath);
     if (!entry) return NULL;
 
     bite_file_t* file = bite__file_open_entry(packed, entry);
@@ -260,7 +260,7 @@ void bite_fclose(bite_file_t* file) {
 }
 
 // Returns the total file size of the virtual file
-bite_size_t bite_fsize(bite_file_t* file) {
+bite_size_t bite_fsize(const bite_file_t* file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fsize(): file handle is NULL");
         return 0;
@@ -276,7 +276,7 @@ bite_size_t bite_fread(void* dst, bite_size_t size, bite_file_t* file) {
         return 0;
     }
 
-    bite__entry_t* entry = file->entry_ref;
+    const bite__entry_t* entry = file->entry_ref;
     
     // Clamp cursor to size
     if (file->pos > entry->data_size) {
@@ -306,7 +306,7 @@ bite_size_t bite_fread(void* dst, bite_size_t size, bite_file_t* file) {
 }
 
 // Returns the virtual file's current cursor position
-bite_offset_t bite_ftell(bite_file_t* file) {
+bite_offset_t bite_ftell(const bite_file_t* file) {
     if (!file) {
         BITE_ERROR_MSG("bite_ftell(): file handle is NULL");
         return 0;
@@ -355,7 +355,7 @@ int bite_fseek(bite_file_t* file, bite_offset_t offset, int whence) {
  * Creates a copy of a bite_file_t* under a new file handle.
  * Allows for safer multi-threaded operations when using a shared bite_packed_t* file.
  */
-bite_file_t* bite_fdup(bite_file_t* file) {
+bite_file_t* bite_fdup(const bite_file_t* file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fdup(): file handle is NULL");
         return NULL;
@@ -635,7 +635,7 @@ int bite__path_view_next(struct bite__path_view* path) {
  * Finds the first entry that matches with the given filepath.
  * Returns null if no entry was found.
  */
-static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char* filepath) {
+static const bite__entry_t* bite__packed_find_entry(const bite_packed_t* packed, const char* filepath) {
     assert(packed->table.file.entries > 0);
 
     const size_t path_length = bite__strnlen(filepath, BITE_PATH_MAX_LENGTH);
@@ -713,7 +713,7 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
 }
 
 // Prepares a bite_file_t object.
-static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry_t* entry_ref) {
+static bite_file_t* bite__file_open_entry(const bite_packed_t* packed_ref, const bite__entry_t* entry_ref) {
     bite_file_t* file = (bite_file_t*)malloc(sizeof(*file));
  
     // just in case...

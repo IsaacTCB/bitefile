@@ -49,13 +49,13 @@ BITE_API bite_packed_t* bite_packed_open(const char* filepath);   // Opens a bit
 BITE_API void           bite_packed_close(bite_packed_t* packed); // Closes a bite-packed file
 
 // File operations
-BITE_API bite_file_t*  bite_fopen(bite_packed_t* packed, const char* filepath);
+BITE_API bite_file_t*  bite_fopen(const bite_packed_t* packed, const char* filepath);
 BITE_API const char*   bite_fname(bite_file_t* file);
-BITE_API bite_size_t   bite_fsize(bite_file_t* file);
+BITE_API bite_size_t   bite_fsize(const bite_file_t* file);
 BITE_API bite_size_t   bite_fread(void* dst, bite_size_t size, bite_file_t* file);
-BITE_API bite_offset_t bite_ftell(bite_file_t* file);
+BITE_API bite_offset_t bite_ftell(const bite_file_t* file);
 BITE_API int           bite_fseek(bite_file_t* file, bite_offset_t pos, int whence);
-BITE_API bite_file_t*  bite_fdup(bite_file_t* file);
+BITE_API bite_file_t*  bite_fdup(const bite_file_t* file);
 BITE_API void          bite_fclose(bite_file_t* file);
 
 // Error handling
