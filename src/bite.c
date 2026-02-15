@@ -708,14 +708,14 @@ static bite__entry_t* bite__packed_find_entry(bite_packed_t* packed, const char*
         BITE_ERROR_MSG("%s: is a directory, not a file!", filepath);
     else
         BITE_ERROR_MSG("%s: not found.", filepath);
-    
+
     return NULL;
 }
 
 // Prepares a bite_file_t object.
 static bite_file_t* bite__file_open_entry(bite_packed_t* packed_ref, bite__entry_t* entry_ref) {
     bite_file_t* file = (bite_file_t*)malloc(sizeof(*file));
-    
+ 
     // just in case...
     if (!file)
         return NULL;
