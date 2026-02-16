@@ -105,6 +105,7 @@ These are some of the missing features that I would like to implement/do in
 the future:
 
 - Improve API documentation.
+- Support big endian platforms.
 - Ability to specify callback functions for `bite_packed_open()`.
 - API for listing all files/dirs in a directory (like dirent.h, perhaps?)
 - Allow interaction with multiple packed files using a single packed_file_t* handle.
