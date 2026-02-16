@@ -220,7 +220,9 @@ bite_file_t* bite_fopen(const bite_packed_t* packed, const char* filepath) {
     }
 
     const bite__entry_t* entry = bite__packed_find_entry(packed, filepath);
-    if (!entry) return NULL;
+    if (!entry) {
+        return NULL;
+    }
 
     bite_file_t* file = bite__file_open_entry(packed, entry);
     if (!file) {
@@ -406,7 +408,7 @@ struct bite__path_view {
 // Raw usage of this function should be avoided unless strictly needed;
 // Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
 static int bite__fread(void* out_ptr, bite__impl_size_t size, FILE* file) {
-    return fread(out_ptr, size, 1, file) == 1;
+    return (fread(out_ptr, size, 1, file)) == 1;
 }
 
 /*
@@ -492,13 +494,17 @@ static bite__status_e bite__table_read(bite__table_t* table, bite__header_t* hea
     bite__status_e status;
 
     table->file.entries = (bite__entry_t*)malloc(sizeof(bite__entry_t) * file_count);
-    if (!table->file.entries) return BITE_ERR_BAD_ALLOC;
+    if (!table->file.entries) {
+        return BITE_ERR_BAD_ALLOC;
+    }
 
     table->file.count = file_count;
 
     table->pool.capacity = 32 * file_count; // Allocate 32 bytes per filepath to avoid possible realloc
     table->pool.ptr = (char*)malloc(table->pool.capacity);
-    if (!table->pool.ptr) return BITE_ERR_BAD_ALLOC;
+    if (!table->pool.ptr) {
+        return BITE_ERR_BAD_ALLOC;
+    }
     table->pool.size = 0;
 
     // Skip to file entry offset
@@ -604,18 +610,21 @@ int bite__path_view_next(struct bite__path_view* path) {
     size_t i = path->pos;
 
     // Fail if out-of-bounds
-    if (i >= path->src_size)
+    if (i >= path->src_size) {
         return 0;
+    }
 
     // Move out of path separator
     for (; i < path->src_size; i++) {
-        if (!bite__path_is_separator(path->src[i]))
+        if (!bite__path_is_separator(path->src[i])) {
             break;
+        }
     }
 
     // Fail if out-of-bounds
-    if (i >= path->src_size)
+    if (i >= path->src_size) {
         return 0;
+    }
 
     size_t start = i;
 
@@ -703,11 +712,11 @@ static const bite__entry_t* bite__packed_find_entry(const bite_packed_t* packed,
         }
     }
 
-    if (entry && entry->flags & ENTRY_IS_DIR)
+    if (entry && entry->flags & ENTRY_IS_DIR) {
         BITE_ERROR_MSG("%s: is a directory, not a file!", filepath);
-    else
+    } else {
         BITE_ERROR_MSG("%s: not found.", filepath);
-
+    }
     return NULL;
 }
 
@@ -716,8 +725,9 @@ static bite_file_t* bite__file_open_entry(const bite_packed_t* packed_ref, const
     bite_file_t* file = (bite_file_t*)malloc(sizeof(*file));
  
     // just in case...
-    if (!file)
+    if (!file) {
         return NULL;
+    }
 
     memset(file, 0, sizeof(*file));
     file->packed_ref = packed_ref;
