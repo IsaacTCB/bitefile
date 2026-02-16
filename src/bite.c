@@ -178,8 +178,7 @@ bite_packed_t* bite_packed_open(const char* filepath) {
     }
 
     memset(packed, 0, sizeof(*packed));
-    strncpy(packed->path, filepath, path_size);
-    packed->path[BITE_PATH_MAX_LENGTH-1] = '\0';
+    snprintf(packed->path, sizeof(packed->path), "%s", filepath);
     packed->handle = file;
 
     bite__status_e status = bite__header_read(&packed->header, file);
