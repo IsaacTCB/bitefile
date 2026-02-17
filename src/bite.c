@@ -265,8 +265,7 @@ bite_size_t bite_fsize(const bite_file_t* file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fsize(): file handle is NULL");
         return 0;
-    } 
-
+    }
     return (bite_size_t)file->entry_ref->data_size;
 }
 
