@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.11)
 
-project(bitefile VERSION 1.0.0 LANGUAGES C)
+project(bitefile VERSION 0.1.0 LANGUAGES C)
 
 # Options
 option(BITEFILE_BUILD_EXAMPLES "Build example projects" ${PROJECT_IS_TOP_LEVEL})
