@@ -187,10 +187,31 @@ static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed,
 static bite_file_t *bite__file_open_entry(const bite_packed_t *packed_ref, const bite__entry_t *entry_ref);
 static inline int bite__close_callbacks(const bite_callbacks_t *callbacks, void *userdata);
 
+/**
+ * @brief Validates whether the user callback isn't
+ * null and has all required methods defined.
+ *
+ * @param callbacks The callback to check from (can be NULL).
+ * @return 1 if valid, 0 otherwise.
+ */
+static inline int bite__validate_callbacks(const bite_callbacks_t *callbacks) {
+    if (!callbacks) {
+        return 0;
+    }
+    return callbacks->read &&
+           callbacks->seek &&
+           callbacks->tell;
+}
+
 /* Open a bite packed archive using the filepath */
 bite_packed_t *bite_packed_open_callbacks(const bite_callbacks_t *callbacks, void *userdata, const char *filepath) {
     bite_packed_t *packed = NULL;
     int owns_userdata = 0;
+
+    if (!bite__validate_callbacks(callbacks)) {
+        BITE_ERROR_MSG("Invalid callback table!\n");
+        goto fail;
+    }
 
     size_t path_size = bite__strnlen(filepath, BITE_PATH_MAX_LENGTH);
     if (path_size >= BITE_PATH_MAX_LENGTH) {
