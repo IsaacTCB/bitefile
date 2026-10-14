@@ -14,11 +14,7 @@ from io import BufferedWriter, BufferedReader
 from pathlib import Path
 
 
-def pack_bite(
-    bite: BufferedWriter,
-    paths: list[Path],
-    relative_to: Path
-):
+def pack_bite(bite: BufferedWriter, paths: list[Path], relative_to: Path):
     write_header(bite)  # Write a placeholder bite header
 
     file_tree = build_file_tree(paths, relative_to)
@@ -40,7 +36,7 @@ def pack_bite(
             "file_table_offset": file_table_offset,
             "file_table_count": len(table),
             "file_data_offset": file_data_offset,
-        }
+        },
     )
 
 
@@ -48,9 +44,10 @@ def pack_bite(
 # Core
 # ==========================
 
+
 class UserInputError(Exception):
     def __init__(self, message):
-        super.__init__(message)
+        super().__init__(message)
 
 
 class DirTree:
@@ -109,9 +106,7 @@ def write_header(
 
 
 def pack_tree(
-    bite: BufferedWriter,
-    root: DirTree,
-    relative_path: Path = Path()
+    bite: BufferedWriter, root: DirTree, relative_path: Path = Path()
 ) -> list[dict]:
     """
     Packs every containing file inside a root DirTree recursively,
@@ -121,13 +116,15 @@ def pack_tree(
     table_entries = []
 
     if relative_path != Path():
-        table_entries.append({
-            "type": "dir",
-            "name": relative_path.name,
-            "children": 0,
-            "sibling": 0,
-            "size": 0,  # @todo: calculate this.
-        })
+        table_entries.append(
+            {
+                "type": "dir",
+                "name": relative_path.name,
+                "children": 0,
+                "sibling": 0,
+                "size": 0,  # @todo: calculate this.
+            }
+        )
 
     children = 0
     sibling = 0
@@ -217,7 +214,7 @@ def write_table(bite: BufferedWriter, table_entries: list[dict]) -> None:
             case "file":
                 write_table_entry_file(bite, entry)
             case _:
-                raise Exception(f"Invalid file table type \"{entry["type"]}\"")
+                raise Exception(f'Invalid file table type "{entry["type"]}"')
 
 
 def pack_file(bite: BufferedWriter, input_path: Path) -> dict:
@@ -255,6 +252,7 @@ def process_file(file: BufferedReader) -> bytes:
 # Helpers
 # ==========================
 
+
 def write_struct(bite: BufferedWriter, fmt: str, *values) -> None:
     """
     Writes a struct template to output file.
@@ -263,9 +261,7 @@ def write_struct(bite: BufferedWriter, fmt: str, *values) -> None:
     if ">" not in fmt and "<" not in fmt:
         fmt = "<" + fmt  # Ensure little endian
 
-    bite.write(
-        struct.pack(fmt, *values)
-    )
+    bite.write(struct.pack(fmt, *values))
 
 
 def write_padding(bite: BufferedWriter, alignment: int = 16) -> None:
@@ -280,7 +276,7 @@ def write_padding(bite: BufferedWriter, alignment: int = 16) -> None:
 
 
 def write_string(bite: BufferedWriter, string: str) -> None:
-    encoded = string.encode('utf-8')
+    encoded = string.encode("utf-8")
     write_struct(bite, "<B", len(encoded))
     bite.write(encoded)
 
@@ -304,12 +300,14 @@ def parser_build() -> argparse.ArgumentParser:
         default=[],
     )
     parser.add_argument(
-        "-r", "--recursive",
+        "-r",
+        "--recursive",
         help="parse directories and their contents.",
         action="store_true",
     )
     parser.add_argument(
-        "-rel", "--relative-to",
+        "-rel",
+        "--relative-to",
         help="set the relative path of packed files.",
         type=str,
         default=str(Path.cwd()),
@@ -320,13 +318,11 @@ def parser_build() -> argparse.ArgumentParser:
     #     default=16,
     # )
     parser.add_argument(
-        "-o", "--output",
-        help="specify target filename",
-        type=str,
-        required=True
+        "-o", "--output", help="specify target filename", type=str, required=True
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         help="display extra messages",
         action="store_true",
     )
@@ -355,34 +351,30 @@ def parse_input_paths(args: argparse.Namespace) -> list[Path]:
     for path in input_paths:
         # Is this path even valid?
         if not path.exists():
-            raise UserInputError(
-                f"\"{path}\" does not exist!"
-            )
-        
+            raise UserInputError(f'"{path}" does not exist!')
+
         # Paths must be resolved beforehand!
         if ".." in path.parts:
             raise UserInputError(
-                f"\"{path}\": All input paths must be resolved beforehand!"
+                f'"{path}": All input paths must be resolved beforehand!'
             )
 
         # For directories, recurse only if that setting is enabled
         if path.is_dir():
             if not args.recursive:
                 raise UserInputError(
-                    f"\"{path}\" is a directory! "
+                    f'"{path}" is a directory! '
                     "Use -r or --recursive for recursive selection."
                 )
 
-            for sub_path in path.rglob('*'):
+            for sub_path in path.rglob("*"):
                 filtered_paths.append(sub_path)
 
         # Append normal files
         elif path.is_file():
             filtered_paths.append(path)
         else:
-            raise UserInputError(
-                f"\"{path}\" is an invalid path."
-            )
+            raise UserInputError(f'"{path}" is an invalid path.')
 
     filtered_paths = list(set(filtered_paths))  # Remove duplicates
 
@@ -403,11 +395,13 @@ def build_file_tree(paths: list[Path], relative_to: Path) -> DirTree:
     root = DirTree()
 
     # Sort list by directory and alphabetically
-    paths.sort(key=lambda p: (
-        p.parts[:-1],
-        p.name.lower(),
-        p.name,
-    ))
+    paths.sort(
+        key=lambda p: (
+            p.parts[:-1],
+            p.name.lower(),
+            p.name,
+        )
+    )
 
     for path in paths:
         p = path
@@ -437,7 +431,7 @@ def print_file_tree(root: DirTree, indent: int = 0) -> None:
 
     for d in root.dirs:
         print(tab + d)
-        print_file_tree(root.dirs[d], indent+1)
+        print_file_tree(root.dirs[d], indent + 1)
 
     for f in root.files:
         print(tab + "- " + f.name)
@@ -446,6 +440,7 @@ def print_file_tree(root: DirTree, indent: int = 0) -> None:
 # ==========================
 # Entrypoint
 # ==========================
+
 
 def main() -> None:
     """
@@ -471,7 +466,7 @@ def main() -> None:
     bite_path = Path(args.output)
     with open(bite_path, "wb") as bite:
         pack_bite(bite, input_paths, args.relative_to)
-        _print(f"Generated \"{bite_path}\" successfully!")
+        _print(f'Generated "{bite_path}" successfully!')
 
 
 if __name__ == "__main__":

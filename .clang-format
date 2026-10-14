@@ -1,0 +1,34 @@
+---
+Language: C
+IndentWidth: 4
+ColumnLimit: 0
+PointerAlignment: Right
+DerivePointerAlignment: false
+SortIncludes: true
+
+KeepEmptyLines:
+  AtEndOfFile: false
+  AtStartOfFile: false
+  AtStartOfBlock: false
+
+InsertBraces: true
+SpaceInEmptyBlock: false
+SpaceBeforeSquareBrackets: false
+IndentCaseLabels: true
+AlignAfterOpenBracket: DontAlign
+AlignOperands: AlignAfterOperator
+BreakBeforeBraces: Attach
+
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+
+BraceWrapping:
+  AfterControlStatement: Never
+  AfterFunction: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterEnum: false
+  AfterExternBlock: false
+  BeforeElse: false
+  BeforeWhile: false
