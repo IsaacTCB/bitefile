@@ -10,21 +10,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int main(int argc, char* argv[]) {
-    char* bite_filepath = "data.bite";
+int main(int argc, char *argv[]) {
+    char *bite_filepath = "data.bite";
     if (argc > 1) {
         bite_filepath = argv[1];
     }
 
-    bite_packed_t* packed = bite_packed_open(bite_filepath);
+    bite_packed_t *packed = bite_packed_open(bite_filepath);
     if (!packed) {
         printf("Error: %s\n", bite_error_str());
         exit(3);
     }
 
     // Open text file and print its content.
-    const char* filepath = "assets/basic/hello.txt";
-    bite_file_t* file = bite_fopen(packed, filepath);
+    const char *filepath = "assets/basic/hello.txt";
+    bite_file_t *file = bite_fopen(packed, filepath);
     if (file) {
         printf("Found file '%s'!\n", bite_fname(file));
 
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
         bite_size_t len = bite_fsize(file);
 
         if (len > 0) {
-            char* buffer = malloc(len+1);
+            char *buffer = malloc(len + 1);
             len = bite_fread(buffer, len, file);
             buffer[len] = '\0';
             printf("Read %zd bytes\n%s\n", len, buffer);
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
         assert(status == 0);
 
         if (len > 0) {
-            char* buffer = malloc(len+1);
+            char *buffer = malloc(len + 1);
             len = bite_fread(buffer, len, file);
             buffer[len] = '\0';
             printf("Read %zd bytes\n%s\n", len, buffer);
