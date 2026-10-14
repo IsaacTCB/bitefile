@@ -24,7 +24,7 @@ jobs:
           - os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
-            generator: Visual Studio 17 2022
+            generator: Visual Studio 18 2026
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
