@@ -187,11 +187,12 @@ static inline int bite__close_callbacks(const bite_callbacks_t *callbacks, void 
 /* Open a bite packed archive using the filepath */
 bite_packed_t *bite_packed_open_callbacks(const bite_callbacks_t *callbacks, void *userdata, const char *filepath) {
     bite_packed_t *packed = NULL;
+    int owns_userdata = 0;
 
     size_t path_size = bite__strnlen(filepath, BITE_PATH_MAX_LENGTH);
     if (path_size >= BITE_PATH_MAX_LENGTH) {
         BITE_ERROR_MSG("Filepath is too large!\n");
-        return NULL;
+        goto fail;
     }
 
     /* if open callback was specified, try opening the file */
@@ -199,14 +200,15 @@ bite_packed_t *bite_packed_open_callbacks(const bite_callbacks_t *callbacks, voi
         userdata = callbacks->open(filepath);
         if (!userdata) {
             BITE_ERROR_MSG("Unable to open file \"%s\" via callback.\n", filepath);
-            return NULL;
+            goto fail;
         }
+        owns_userdata = 1;
     }
 
     packed = (bite_packed_t *)calloc(1, sizeof(*packed));
     if (packed == NULL) {
         BITE_ERROR_MSG("Unable to allocate data for \"%s\" handle.", filepath);
-        return NULL;
+        goto fail;
     }
 
     snprintf(packed->path, sizeof(packed->path), "%s", filepath);
@@ -217,20 +219,26 @@ bite_packed_t *bite_packed_open_callbacks(const bite_callbacks_t *callbacks, voi
     bite__status_e status = bite__header_read(&packed->header, &packed->callbacks, packed->userdata);
     if (status != BITE_OK) {
         BITE_ERROR_MSG("Unable to parse header. Err: %d\n", status);
-        bite__close_callbacks(&packed->callbacks, userdata);
-        free(packed);
-        return NULL;
+        goto fail;
     }
 
     status = bite__table_read(&packed->table, &packed->header, &packed->callbacks, packed->userdata);
     if (status != BITE_OK) {
         BITE_ERROR_MSG("Unable to parse file table. Err: %d\n", status);
-        bite__close_callbacks(&packed->callbacks, userdata);
-        free(packed);
-        return NULL;
+        goto fail;
     }
 
     return packed;
+
+fail:
+    if (packed) {
+        bite__table_close(&packed->table);
+        free(packed);
+    }
+    if (owns_userdata) {
+        bite__close_callbacks(callbacks, userdata);
+    }
+    return NULL;
 }
 
 /* Open a bite packed archive using the filepath */
@@ -554,11 +562,12 @@ static bite__status_e bite__entry_read(bite__entry_t *entry, const bite_callback
 static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *header, const bite_callbacks_t *callbacks, void *userdata) {
     size_t file_count = header->file_entry_count;
 
-    bite__status_e status;
+    bite__status_e status = BITE_OK;
 
     table->file.entries = (bite__entry_t *)malloc(sizeof(bite__entry_t) * file_count);
     if (!table->file.entries) {
-        return BITE_ERR_BAD_ALLOC;
+        status = BITE_ERR_BAD_ALLOC;
+        goto fail;
     }
 
     table->file.count = file_count;
@@ -566,14 +575,16 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
     table->pool.capacity = 32 * file_count; /* Allocate 32 bytes per filepath to avoid possible realloc */
     table->pool.ptr = (char *)malloc(table->pool.capacity);
     if (!table->pool.ptr) {
-        return BITE_ERR_BAD_ALLOC;
+        status = BITE_ERR_BAD_ALLOC;
+        goto fail;
     }
     table->pool.size = 0;
 
     /* Skip to file entry offset */
     bite__impl_offset_t old_pos = callbacks->tell(userdata);
     if (callbacks->seek(userdata, header->file_entry_offset, SEEK_SET) != 0) {
-        return BITE_ERR_MALFORMED;
+        status = BITE_ERR_MALFORMED;
+        goto fail;
     }
 
     for (size_t i = 0; i < file_count; i++) {
@@ -599,8 +610,8 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
         } while (0);
 
         if (entry->name_length == 0) {
-            bite__table_close(table);
-            return BITE_ERR_MALFORMED;
+            status = BITE_ERR_MALFORMED;
+            goto fail;
         }
 
         size_t name_size = entry->name_length + 1;
@@ -615,8 +626,7 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
             if (new_ptr) {
                 table->pool.ptr = (char *)new_ptr;
             } else {
-                bite__table_close(table);
-                return BITE_ERR_BAD_ALLOC;
+                goto fail;
             }
             /* printf("reallocated %zu bytes for name pool\n", table->pool.capacity); */
         }
@@ -626,13 +636,17 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
         table->pool.size += name_size;
 
         if (status != BITE_OK) {
-            bite__table_close(table);
-            return status;
+            goto fail;
         }
     }
 
     callbacks->seek(userdata, old_pos, SEEK_SET);
-    return BITE_OK;
+    return status;
+
+fail:
+    status = (status != BITE_OK) ? status : BITE_ERR_GENERIC;
+    bite__table_close(table);
+    return status;
 }
 
 static void bite__table_close(bite__table_t *table) {
