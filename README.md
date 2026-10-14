@@ -106,7 +106,6 @@ the future:
 
 - Improve API documentation.
 - Support big endian platforms.
-- Ability to specify callback functions for `bite_packed_open()`.
 - API for listing all files/dirs in a directory (like dirent.h, perhaps?)
 - Per-file compression.
 - Unit tests.
