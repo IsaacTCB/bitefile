@@ -142,7 +142,7 @@ struct bite_packed {
 struct bite_file {
     const bite_packed_t *packed_ref; /* Weak ref, packed is responsible for closing itself */
     const bite__entry_t *entry_ref;  /* Same as above */
-    void *handle_override;
+    void *userdata_override;
     bite__impl_offset_t pos;
 };
 
@@ -315,9 +315,9 @@ void bite_fclose(bite_file_t *file) {
     }
 
     /* Close any dupped file handles */
-    if (file->handle_override) {
-        bite__close_callbacks(&file->packed_ref->callbacks, file->handle_override);
-        file->handle_override = NULL;
+    if (file->userdata_override) {
+        bite__close_callbacks(&file->packed_ref->callbacks, file->userdata_override);
+        file->userdata_override = NULL;
     }
 
     free(file);
@@ -356,8 +356,8 @@ bite_size_t bite_fread(void *dst, bite_size_t size, bite_file_t *file) {
 
     if (to_read != 0) {
         /* solve dupped file handle if any */
-        void *userdata = file->handle_override
-                           ? file->handle_override
+        void *userdata = file->userdata_override
+                           ? file->userdata_override
                            : file->packed_ref->userdata;
 
         file->packed_ref->callbacks.seek(
@@ -450,7 +450,7 @@ bite_file_t *bite_fdup(const bite_file_t *file) {
     }
 
     dup->pos = file->pos;
-    dup->handle_override = new_handle;
+    dup->userdata_override = new_handle;
     return dup;
 }
 
@@ -809,7 +809,7 @@ static bite_file_t *bite__file_open_entry(const bite_packed_t *packed_ref, const
 
     file->packed_ref = packed_ref;
     file->entry_ref = entry_ref;
-    file->handle_override = NULL;
+    file->userdata_override = NULL;
     file->pos = 0;
     return file;
 }
