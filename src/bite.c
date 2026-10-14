@@ -150,6 +150,9 @@ struct bite_file {
  *   stdio callbacks   *
  * =================== */
 
+/* TODO: move all of these callbacks into their own special file,
+ * and also add the option to disable stdio altogether */
+
 static bite_size_t bite__stdio_read(void *dst, bite_size_t size, void *userdata) {
     return (bite_size_t)fread(dst, 1, size, (FILE *)userdata);
 }
@@ -211,8 +214,8 @@ bite_packed_t *bite_packed_open_callbacks(const bite_callbacks_t *callbacks, voi
         goto fail;
     }
 
+    /* setup packed */
     snprintf(packed->path, sizeof(packed->path), "%s", filepath);
-
     packed->callbacks = *callbacks;
     packed->userdata = userdata;
 
