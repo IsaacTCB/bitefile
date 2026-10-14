@@ -66,9 +66,25 @@ typedef int64_t bite_offset_t;
  */
 typedef uint64_t bite_size_t;
 
+typedef struct {
+    bite_size_t (*read)(void *dst, bite_size_t size, void *userdata);
+    int (*seek)(void *userdata, bite_offset_t offset, int whence);
+    void *(*open)(const char *filepath);
+    int (*close)(void *userdata);
+    bite_offset_t (*tell)(void *userdata);
+} bite_callbacks_t;
+
 /*
  * FUNCTIONS
  */
+
+/**
+ * @brief Opens a bite packed archive file.
+ *
+ * @param filepath Length must be < 255.
+ * @return `bite_packed_t*` handle or `NULL` on failure.
+ */
+BITE_API bite_packed_t *bite_packed_open_callbacks(const bite_callbacks_t *callbacks, void *userdata, const char *filepath);
 
 /**
  * @brief Opens a bite packed archive file.

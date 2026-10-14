@@ -22,11 +22,11 @@
 #define BITE_PATH_MAX_LENGTH (255)
 
 /* Safe file reader wrapper. Calls 'return BITE_ERR_MALFORMED' on fail. */
-#define BITE_IMPL_READ(dst, file)                              \
-    do {                                                       \
-        int status = bite__fread((dst), sizeof(*(dst)), file); \
-        if (!status)                                           \
-            return BITE_ERR_MALFORMED;                         \
+#define BITE_IMPL_READ(dst, file, userdata)                              \
+    do {                                                                 \
+        int status = bite__fread((dst), sizeof(*(dst)), file, userdata); \
+        if (!status)                                                     \
+            return BITE_ERR_MALFORMED;                                   \
     } while (0)
 
 /* Error handling stuff. Might not be a good idea to use a shared global for thread safety reasons. */
@@ -130,7 +130,10 @@ typedef struct {
 /* Bite packed archive handle */
 struct bite_packed {
     char path[BITE_PATH_MAX_LENGTH];
-    FILE *handle;
+
+    bite_callbacks_t callbacks;
+    void *userdata;
+
     bite__header_t header;
     bite__table_t table;
 };
@@ -144,20 +147,45 @@ struct bite_file {
 };
 
 /* =================== *
+ *   stdio callbacks   *
+ * =================== */
+
+static bite_size_t bite__stdio_read(void *dst, bite_size_t size, void *userdata) {
+    return (bite_size_t)fread(dst, 1, size, (FILE *)userdata);
+}
+
+static int bite__stdio_seek(void *userdata, bite_offset_t offset, int whence) {
+    return fseek_64((FILE *)userdata, offset, whence);
+}
+
+static void *bite__stdio_open(const char *filepath) {
+    return (void *)fopen(filepath, "rb");
+}
+
+static int bite__stdio_close(void *userdata) {
+    return fclose((FILE *)userdata);
+}
+
+static bite_offset_t bite__stdio_tell(void *userdata) {
+    return (bite_offset_t)ftell_64((FILE *)userdata);
+}
+
+/* =================== *
  *       Public        *
  * =================== */
 
 static size_t bite__strnlen(const char *str, size_t size);
-static int bite__fread(void *out_ptr, bite__impl_size_t size, FILE *file);
-static bite__status_e bite__header_read(bite__header_t *header, FILE *file);
-static bite__status_e bite__entry_read(bite__entry_t *entry, FILE *file);
-static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *header, FILE *file);
+static int bite__fread(void *out_ptr, bite__impl_size_t size, const bite_callbacks_t *callbacks, void *userdata);
+static bite__status_e bite__header_read(bite__header_t *header, const bite_callbacks_t *callbacks, void *userdata);
+static bite__status_e bite__entry_read(bite__entry_t *entry, const bite_callbacks_t *callbacks, void *userdata);
+static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *header, const bite_callbacks_t *callbacks, void *userdata);
 static void bite__table_close(bite__table_t *table);
 static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed, const char *filepath);
 static bite_file_t *bite__file_open_entry(const bite_packed_t *packed_ref, const bite__entry_t *entry_ref);
+static inline int bite__close_callbacks(const bite_callbacks_t *callbacks, void *userdata);
 
 /* Open a bite packed archive using the filepath */
-bite_packed_t *bite_packed_open(const char *filepath) {
+bite_packed_t *bite_packed_open_callbacks(const bite_callbacks_t *callbacks, void *userdata, const char *filepath) {
     bite_packed_t *packed = NULL;
 
     size_t path_size = bite__strnlen(filepath, BITE_PATH_MAX_LENGTH);
@@ -166,39 +194,65 @@ bite_packed_t *bite_packed_open(const char *filepath) {
         return NULL;
     }
 
-    FILE *file = fopen(filepath, "rb");
-    if (file == NULL) {
-        BITE_ERROR_MSG("Unable to open file at \"%s\"\n", filepath);
-        return NULL;
+    /* if open callback was specified, try opening the file */
+    if (userdata == NULL && callbacks->open) {
+        userdata = callbacks->open(filepath);
+        if (!userdata) {
+            BITE_ERROR_MSG("Unable to open file \"%s\" via callback.\n", filepath);
+            return NULL;
+        }
     }
 
     packed = (bite_packed_t *)calloc(1, sizeof(*packed));
     if (packed == NULL) {
         BITE_ERROR_MSG("Unable to allocate data for \"%s\" handle.", filepath);
-        fclose(file);
         return NULL;
     }
 
     snprintf(packed->path, sizeof(packed->path), "%s", filepath);
-    packed->handle = file;
 
-    bite__status_e status = bite__header_read(&packed->header, file);
+    packed->callbacks = *callbacks;
+    packed->userdata = userdata;
+
+    bite__status_e status = bite__header_read(&packed->header, &packed->callbacks, packed->userdata);
     if (status != BITE_OK) {
         BITE_ERROR_MSG("Unable to parse header. Err: %d\n", status);
-        fclose(file);
+        bite__close_callbacks(&packed->callbacks, userdata);
         free(packed);
         return NULL;
     }
 
-    status = bite__table_read(&packed->table, &packed->header, file);
+    status = bite__table_read(&packed->table, &packed->header, &packed->callbacks, packed->userdata);
     if (status != BITE_OK) {
         BITE_ERROR_MSG("Unable to parse file table. Err: %d\n", status);
-        fclose(file);
+        bite__close_callbacks(&packed->callbacks, userdata);
         free(packed);
         return NULL;
     }
 
     return packed;
+}
+
+/* Open a bite packed archive using the filepath */
+bite_packed_t *bite_packed_open(const char *filepath) {
+    static const bite_callbacks_t s_callbacks = {
+        .read = &bite__stdio_read,
+        .seek = &bite__stdio_seek,
+        .open = &bite__stdio_open,
+        .close = &bite__stdio_close,
+        .tell = &bite__stdio_tell,
+    };
+
+    return bite_packed_open_callbacks(
+        &s_callbacks, NULL,
+        filepath);
+}
+
+static inline int bite__close_callbacks(const bite_callbacks_t *callbacks, void *userdata) {
+    if (!callbacks->close) {
+        return 1; /* skip if null */
+    }
+    return callbacks->close(userdata);
 }
 
 /* Closes a bite packed archive handle. */
@@ -208,7 +262,7 @@ void bite_packed_close(bite_packed_t *packed) {
         return;
     }
 
-    fclose(packed->handle);
+    bite__close_callbacks(&packed->callbacks, packed->userdata);
     bite__table_close(&packed->table);
     free(packed);
 }
@@ -254,7 +308,7 @@ void bite_fclose(bite_file_t *file) {
 
     /* Close any dupped file handles */
     if (file->handle_override) {
-        fclose(file->handle_override);
+        file->packed_ref->callbacks.close(file->handle_override);
         file->handle_override = NULL;
     }
 
@@ -293,11 +347,16 @@ bite_size_t bite_fread(void *dst, bite_size_t size, bite_file_t *file) {
     }
 
     if (to_read != 0) {
-        FILE *handle = file->packed_ref->handle;
-        fseek_64(handle, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
+        /* solve dupped file handle if any */
+        void *userdata = file->handle_override
+                           ? file->handle_override
+                           : file->packed_ref->userdata;
+
+        file->packed_ref->callbacks.seek(
+            userdata, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
         file->pos += to_read;
 
-        int result = bite__fread(dst, to_read, handle);
+        int result = bite__fread(dst, to_read, &file->packed_ref->callbacks, userdata);
         if (!result) {
             return 0;
         }
@@ -369,7 +428,7 @@ bite_file_t *bite_fdup(const bite_file_t *file) {
     }
 
     /* Reopen file */
-    FILE *new_handle = fopen(file->packed_ref->path, "rb");
+    void *new_handle = file->packed_ref->callbacks.open(file->packed_ref->path);
     if (new_handle == NULL) {
         BITE_ERROR_MSG("bite_fdup(): Unable to reopen \"%s\"\n",
             file->packed_ref->path);
@@ -406,8 +465,8 @@ struct bite__path_view {
 
 /* Raw usage of this function should be avoided unless strictly needed; */
 /* Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner. */
-static int bite__fread(void *out_ptr, bite__impl_size_t size, FILE *file) {
-    return (fread(out_ptr, size, 1, file)) == 1;
+static int bite__fread(void *out_ptr, bite__impl_size_t size, const bite_callbacks_t *callbacks, void *userdata) {
+    return (callbacks->read(out_ptr, size, userdata)) == size;
 }
 
 /*
@@ -424,70 +483,70 @@ static size_t bite__strnlen(const char *str, size_t size) {
     return sz;
 }
 
-static bite__status_e bite__header_read(bite__header_t *header, FILE *file) {
-    BITE_IMPL_READ(&(header->magic), file);
+static bite__status_e bite__header_read(bite__header_t *header, const bite_callbacks_t *callbacks, void *userdata) {
+    BITE_IMPL_READ(&(header->magic), callbacks, userdata);
     if (header->magic != BITE_FILE_MAGIC) {
         return BITE_ERR_NOT_BITE;
     }
 
-    BITE_IMPL_READ(&(header->version), file);
+    BITE_IMPL_READ(&(header->version), callbacks, userdata);
     if (header->version != BITE_FILE_VERSION) {
         return BITE_ERR_INCOMPATIBLE;
     }
 
-    BITE_IMPL_READ(&(header->reserved_1), file);
+    BITE_IMPL_READ(&(header->reserved_1), callbacks, userdata);
 
     uint64_t temp;
-    BITE_IMPL_READ(&temp, file);
+    BITE_IMPL_READ(&temp, callbacks, userdata);
     if (temp > BITE_OFFSET_MAX) {
         return BITE_ERR_TOO_LARGE;
     }
     header->file_entry_offset = (bite__impl_offset_t)temp;
 
-    BITE_IMPL_READ(&(header->file_entry_count), file);
+    BITE_IMPL_READ(&(header->file_entry_count), callbacks, userdata);
 
-    BITE_IMPL_READ(&temp, file);
+    BITE_IMPL_READ(&temp, callbacks, userdata);
     if (temp > BITE_OFFSET_MAX) {
         return BITE_ERR_TOO_LARGE;
     }
     header->file_data_start_offset = (bite__impl_offset_t)temp;
 
-    BITE_IMPL_READ(&(header->reserved_2), file);
+    BITE_IMPL_READ(&(header->reserved_2), callbacks, userdata);
 
     return BITE_OK;
 }
 
-static bite__status_e bite__entry_read(bite__entry_t *entry, FILE *file) {
+static bite__status_e bite__entry_read(bite__entry_t *entry, const bite_callbacks_t *callbacks, void *userdata) {
     uint64_t temp;
 
-    BITE_IMPL_READ(&(entry->flags), file);
+    BITE_IMPL_READ(&(entry->flags), callbacks, userdata);
     /* Is this a dir entry? */
     if (entry->flags & ENTRY_IS_DIR) {
-        BITE_IMPL_READ(&(entry->dir_sibling_offset), file);
-        BITE_IMPL_READ(&(entry->dir_children_count), file);
+        BITE_IMPL_READ(&(entry->dir_sibling_offset), callbacks, userdata);
+        BITE_IMPL_READ(&(entry->dir_children_count), callbacks, userdata);
     }
     /* This is a file entry? */
     else {
-        BITE_IMPL_READ(&temp, file);
+        BITE_IMPL_READ(&temp, callbacks, userdata);
         if (temp > BITE_OFFSET_MAX) {
             return BITE_ERR_TOO_LARGE;
         }
         entry->data_offset = (bite__impl_offset_t)temp;
     }
 
-    BITE_IMPL_READ(&temp, file);
+    BITE_IMPL_READ(&temp, callbacks, userdata);
     if (temp > BITE_SIZE_MAX) {
         return BITE_ERR_TOO_LARGE;
     }
     entry->data_size = (bite__impl_size_t)temp;
 
-    BITE_IMPL_READ(&(entry->reserved), file);
+    BITE_IMPL_READ(&(entry->reserved), callbacks, userdata);
 
     return BITE_OK;
 }
 
 /* Allocates data, so this must be freed using bite_table_close()! */
-static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *header, FILE *file) {
+static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *header, const bite_callbacks_t *callbacks, void *userdata) {
     size_t file_count = header->file_entry_count;
 
     bite__status_e status;
@@ -507,14 +566,14 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
     table->pool.size = 0;
 
     /* Skip to file entry offset */
-    bite__impl_offset_t old_pos = (bite__impl_offset_t)ftell_64(file);
-    if (fseek_64(file, header->file_entry_offset, SEEK_SET) != 0) {
+    bite__impl_offset_t old_pos = callbacks->tell(userdata);
+    if (callbacks->seek(userdata, header->file_entry_offset, SEEK_SET) != 0) {
         return BITE_ERR_MALFORMED;
     }
 
     for (size_t i = 0; i < file_count; i++) {
         bite__entry_t *entry = table->file.entries + i;
-        status = bite__entry_read(entry, file);
+        status = bite__entry_read(entry, callbacks, userdata);
 
         /*
          * Stored strings are variable length.
@@ -528,7 +587,7 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
 
         do {
             uint8_t length;
-            int success = bite__fread(&length, sizeof(length), file);
+            int success = bite__fread(&length, sizeof(length), callbacks, userdata);
             if (success) {
                 entry->name_length = length;
             }
@@ -557,7 +616,7 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
             /* printf("reallocated %zu bytes for name pool\n", table->pool.capacity); */
         }
 
-        bite__fread(&table->pool.ptr[entry->name_pool_offset], (bite__impl_size_t)entry->name_length, file);
+        bite__fread(&table->pool.ptr[entry->name_pool_offset], (bite__impl_size_t)entry->name_length, callbacks, userdata);
         table->pool.ptr[entry->name_pool_offset + entry->name_length] = '\0';
         table->pool.size += name_size;
 
@@ -567,7 +626,7 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
         }
     }
 
-    fseek_64(file, old_pos, SEEK_SET);
+    callbacks->seek(userdata, old_pos, SEEK_SET);
     return BITE_OK;
 }
 
