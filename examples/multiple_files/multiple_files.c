@@ -77,4 +77,7 @@ int main(int argc, char* argv[]) {
         printf("Closed \"%s\"\n", paths[i]);
         files[i] = NULL;
     }
+
+    bite_packed_close(packed);
+    return 0;
 }
