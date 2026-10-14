@@ -66,12 +66,75 @@ typedef int64_t bite_offset_t;
  */
 typedef uint64_t bite_size_t;
 
+typedef struct {
+    /**
+     * @brief File read callback.
+     *
+     * @param dst Destination buffer.
+     * @param size Total read size amount.
+     * @param userdata Callback userdata
+     * @return The number of bytes read.
+     */
+    bite_size_t (*read)(void *dst, bite_size_t size, void *userdata);
+
+    /**
+     * @brief File seek callback
+     *
+     * @param userdata Callback userdata
+     * @param offset What offset to jump to? Typically a number >= 0
+     * @param whence One of SEEK_SET, SEEK_CUR, SEEK_END.
+     * @return 0 on success, a negative number on fail.
+     */
+    int (*seek)(void *userdata, bite_offset_t offset, int whence);
+
+    /**
+     * @brief Opens a file (optional)
+     *
+     * This function can be left as NULL. Doing so means that
+     * you will have to pass a valid file handle and also
+     * disables `bite_fdup()`.
+     *
+     * @param filepath The filepath to read from.
+     */
+    void *(*open)(const char *filepath);
+
+    /**
+     * @brief Closes a file (optional)
+     *
+     * This function can be left as NULL, meaning that your
+     * app will need to unload the resource manually after
+     * calling bite_packed_close().
+     *
+     * @param userdata Callback userdata
+     * @return 0 on success, a negative number otherwise./
+     */
+    int (*close)(void *userdata);
+
+    /**
+     * @brief Gives the current offset of the file handle.
+     *
+     * @param userdata Callback userdata
+     * @return the offset value, or a negative number on failure.
+     */
+    bite_offset_t (*tell)(void *userdata);
+} bite_callbacks_t;
+
 /*
  * FUNCTIONS
  */
 
 /**
- * @brief Opens a bite packed archive file.
+ * @brief Opens a bite packed archive file using custom callbacks.
+ *
+ * @param callbacks Function callback table.
+ * @param userdata Callback userdata.
+ * @param filepath Length must be < 255.
+ * @return `bite_packed_t*` handle or `NULL` on failure.
+ */
+BITE_API bite_packed_t *bite_packed_open_callbacks(const bite_callbacks_t *callbacks, void *userdata, const char *filepath);
+
+/**
+ * @brief Opens a bite packed archive file using stdio.
  *
  * @param filepath Length must be < 255.
  * @return `bite_packed_t*` handle or `NULL` on failure.
