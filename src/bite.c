@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT //
 /*
  * Copyright (c) 2026-present IsaacTCB
  * Licensed under the MIT License
@@ -21,7 +21,7 @@
 #define BITE_FILE_VERSION (1)
 #define BITE_PATH_MAX_LENGTH (255)
 
-// Safe file reader wrapper. Calls 'return BITE_ERR_MALFORMED' on fail.
+/* Safe file reader wrapper. Calls 'return BITE_ERR_MALFORMED' on fail. */
 #define BITE_IMPL_READ(dst, file)                              \
     do {                                                       \
         int status = bite__fread((dst), sizeof(*(dst)), file); \
@@ -29,11 +29,11 @@
             return BITE_ERR_MALFORMED;                         \
     } while (0)
 
-// Error handling stuff. Might not be a good idea to use a shared global for thread safety reasons.
+/* Error handling stuff. Might not be a good idea to use a shared global for thread safety reasons. */
 #define BITE_ERROR_MSG_SIZE (256)
 static char error_text_buffer[BITE_ERROR_MSG_SIZE];
 
-// Convenience function for printing to the error text buffer.
+/* Convenience function for printing to the error text buffer. */
 #define BITE_ERROR_MSG(...) (snprintf(error_text_buffer, BITE_ERROR_MSG_SIZE, __VA_ARGS__))
 
 #if defined(BITEFILE_LARGE_FILES)
@@ -65,7 +65,7 @@ typedef int32_t bite__impl_offset_t;
 #define fseek_64 (fseeko)
 #endif
 #endif
-// If all of those checks failed, then fallback to standard functions.
+/* If all of those checks failed, then fallback to standard functions. */
 #if !defined(ftell_64) || !defined(fseek_64)
 #define ftell_64 (ftell)
 #define fseek_64 (fseek)
@@ -73,18 +73,18 @@ typedef int32_t bite__impl_offset_t;
 
 typedef enum {
     BITE_OK = 0,
-    BITE_ERR_GENERIC = 1, // For any kind of error not in this list
+    BITE_ERR_GENERIC = 1, /* For any kind of error not in this list */
 
-    // Specific errors
-    BITE_ERR_NOT_BITE = 2, // Not a Bite file!
-    BITE_ERR_INCOMPATIBLE, // Incompatible version
-    BITE_ERR_MALFORMED,    // Malformed file
-    BITE_ERR_BAD_ALLOC,    // Error on allocation
-    BITE_ERR_TOO_LARGE,    // File is too large
+    /* Specific errors */
+    BITE_ERR_NOT_BITE = 2, /* Not a Bite file! */
+    BITE_ERR_INCOMPATIBLE, /* Incompatible version */
+    BITE_ERR_MALFORMED,    /* Malformed file */
+    BITE_ERR_BAD_ALLOC,    /* Error on allocation */
+    BITE_ERR_TOO_LARGE,    /* File is too large */
 } bite__status_e;
 
 typedef struct {
-    uint32_t magic; // Should spell BITE in ASCII
+    uint32_t magic; /* Should spell BITE in ASCII */
     uint16_t version;
     uint16_t reserved_1;
     bite__impl_offset_t file_entry_offset;
@@ -99,10 +99,10 @@ typedef enum {
 } bite__entry_flags_e;
 
 typedef struct {
-    uint32_t flags; // Represented by bite__entry_flags_e
+    uint32_t flags; /* Represented by bite__entry_flags_e */
     union {
         struct {
-            bite__impl_offset_t data_offset; // Is 0 for empty files
+            bite__impl_offset_t data_offset; /* Is 0 for empty files */
         };
         struct {
             uint32_t dir_sibling_offset;
@@ -127,7 +127,7 @@ typedef struct {
     } pool;
 } bite__table_t;
 
-// Bite packed archive handle
+/* Bite packed archive handle */
 struct bite_packed {
     char path[BITE_PATH_MAX_LENGTH];
     FILE *handle;
@@ -135,17 +135,17 @@ struct bite_packed {
     bite__table_t table;
 };
 
-// Virtual file handle
+/* Virtual file handle */
 struct bite_file {
-    const bite_packed_t *packed_ref; // Weak ref, packed is responsible for closing itself
-    const bite__entry_t *entry_ref;  // Same as above
+    const bite_packed_t *packed_ref; /* Weak ref, packed is responsible for closing itself */
+    const bite__entry_t *entry_ref;  /* Same as above */
     void *handle_override;
     bite__impl_offset_t pos;
 };
 
-// ===================
-// Public
-// ===================
+/* =================== *
+ *       Public        *
+ * =================== */
 
 static size_t bite__strnlen(const char *str, size_t size);
 static int bite__fread(void *out_ptr, bite__impl_size_t size, FILE *file);
@@ -156,7 +156,7 @@ static void bite__table_close(bite__table_t *table);
 static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed, const char *filepath);
 static bite_file_t *bite__file_open_entry(const bite_packed_t *packed_ref, const bite__entry_t *entry_ref);
 
-// Open a bite packed archive using the filepath
+/* Open a bite packed archive using the filepath */
 bite_packed_t *bite_packed_open(const char *filepath) {
     bite_packed_t *packed = NULL;
 
@@ -202,7 +202,7 @@ bite_packed_t *bite_packed_open(const char *filepath) {
     return packed;
 }
 
-// Closes a bite packed archive handle.
+/* Closes a bite packed archive handle. */
 void bite_packed_close(bite_packed_t *packed) {
     if (!packed) {
         BITE_ERROR_MSG("bite_packed_close(): Packed handle is NULL!");
@@ -214,7 +214,7 @@ void bite_packed_close(bite_packed_t *packed) {
     free(packed);
 }
 
-// Finds and opens a virtual file inside of the packed file
+/* Finds and opens a virtual file inside of the packed file */
 bite_file_t *bite_fopen(const bite_packed_t *packed, const char *filepath) {
     if (!packed) {
         BITE_ERROR_MSG("bite_fopen() -> %s: Packed handle is NULL! Maybe it wasn't properly initialized?", filepath);
@@ -235,7 +235,7 @@ bite_file_t *bite_fopen(const bite_packed_t *packed, const char *filepath) {
     return file;
 }
 
-// Returns the name of the virtual file
+/* Returns the name of the virtual file */
 const char *bite_fname(bite_file_t *file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fname(): file handle is NULL");
@@ -246,14 +246,14 @@ const char *bite_fname(bite_file_t *file) {
     return ptr;
 }
 
-// Closes a virtual file.
+/* Closes a virtual file. */
 void bite_fclose(bite_file_t *file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fclose(): file handle is NULL");
         return;
     }
 
-    // Close any dupped file handles
+    /* Close any dupped file handles */
     if (file->handle_override) {
         fclose(file->handle_override);
         file->handle_override = NULL;
@@ -262,7 +262,7 @@ void bite_fclose(bite_file_t *file) {
     free(file);
 }
 
-// Returns the total file size of the virtual file
+/* Returns the total file size of the virtual file */
 bite_size_t bite_fsize(const bite_file_t *file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fsize(): file handle is NULL");
@@ -271,7 +271,7 @@ bite_size_t bite_fsize(const bite_file_t *file) {
     return (bite_size_t)file->entry_ref->data_size;
 }
 
-// Reads size of data into the destination buffer from the virtual file
+/* Reads size of data into the destination buffer from the virtual file */
 bite_size_t bite_fread(void *dst, bite_size_t size, bite_file_t *file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fread(): file handle is NULL");
@@ -280,12 +280,12 @@ bite_size_t bite_fread(void *dst, bite_size_t size, bite_file_t *file) {
 
     const bite__entry_t *entry = file->entry_ref;
 
-    // Clamp cursor to size
+    /* Clamp cursor to size */
     if (file->pos > entry->data_size) {
         file->pos = entry->data_size;
     }
 
-    // Limit reading size
+    /* Limit reading size */
     bite__impl_size_t to_read = (bite__impl_size_t)size;
     if (file->pos >= entry->data_size) {
         to_read = 0;
@@ -307,7 +307,7 @@ bite_size_t bite_fread(void *dst, bite_size_t size, bite_file_t *file) {
     return to_read;
 }
 
-// Returns the virtual file's current cursor position
+/* Returns the virtual file's current cursor position */
 bite_offset_t bite_ftell(const bite_file_t *file) {
     if (!file) {
         BITE_ERROR_MSG("bite_ftell(): file handle is NULL");
@@ -316,7 +316,7 @@ bite_offset_t bite_ftell(const bite_file_t *file) {
     return file->pos;
 }
 
-// Seeks into a specific point depending on a whence
+/* Seeks into a specific point depending on a whence */
 int bite_fseek(bite_file_t *file, bite_offset_t offset, int whence) {
     if (!file) {
         BITE_ERROR_MSG("bite_fseek(): file handle is NULL");
@@ -369,7 +369,7 @@ bite_file_t *bite_fdup(const bite_file_t *file) {
         return NULL;
     }
 
-    // Reopen file
+    /* Reopen file */
     FILE *new_handle = fopen(file->packed_ref->path, "rb");
     if (new_handle == NULL) {
         BITE_ERROR_MSG("bite_fdup(): Unable to reopen \"%s\"\n",
@@ -383,14 +383,14 @@ bite_file_t *bite_fdup(const bite_file_t *file) {
     return dup;
 }
 
-// Returns the a string containing the error info
+/* Returns the a string containing the error info */
 const char *bite_error_str() {
     return error_text_buffer;
 }
 
-// =====================
-// Private
-// =====================
+/* ===================== *
+ *        Private        *
+ * ===================== */
 
 /*
  * Used by bite__packed_find_entry() for selecting
@@ -405,8 +405,8 @@ struct bite__path_view {
     size_t size;
 };
 
-// Raw usage of this function should be avoided unless strictly needed;
-// Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner.
+/* Raw usage of this function should be avoided unless strictly needed; */
+/* Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner. */
 static int bite__fread(void *out_ptr, bite__impl_size_t size, FILE *file) {
     return (fread(out_ptr, size, 1, file)) == 1;
 }
@@ -462,12 +462,12 @@ static bite__status_e bite__entry_read(bite__entry_t *entry, FILE *file) {
     uint64_t temp;
 
     BITE_IMPL_READ(&(entry->flags), file);
-    // Is this a dir entry?
+    /* Is this a dir entry? */
     if (entry->flags & ENTRY_IS_DIR) {
         BITE_IMPL_READ(&(entry->dir_sibling_offset), file);
         BITE_IMPL_READ(&(entry->dir_children_count), file);
     }
-    // This is a file entry?
+    /* This is a file entry? */
     else {
         BITE_IMPL_READ(&temp, file);
         if (temp > BITE_OFFSET_MAX) {
@@ -487,7 +487,7 @@ static bite__status_e bite__entry_read(bite__entry_t *entry, FILE *file) {
     return BITE_OK;
 }
 
-// Allocates data, so this must be freed using bite_table_close()!
+/* Allocates data, so this must be freed using bite_table_close()! */
 static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *header, FILE *file) {
     size_t file_count = header->file_entry_count;
 
@@ -500,14 +500,14 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
 
     table->file.count = file_count;
 
-    table->pool.capacity = 32 * file_count; // Allocate 32 bytes per filepath to avoid possible realloc
+    table->pool.capacity = 32 * file_count; /* Allocate 32 bytes per filepath to avoid possible realloc */
     table->pool.ptr = (char *)malloc(table->pool.capacity);
     if (!table->pool.ptr) {
         return BITE_ERR_BAD_ALLOC;
     }
     table->pool.size = 0;
 
-    // Skip to file entry offset
+    /* Skip to file entry offset */
     bite__impl_offset_t old_pos = (bite__impl_offset_t)ftell_64(file);
     if (fseek_64(file, header->file_entry_offset, SEEK_SET) != 0) {
         return BITE_ERR_MALFORMED;
@@ -523,7 +523,7 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
          * is a continuous ASCII/UTF-8 string (not null-terminated)
          */
 
-        // load name
+        /* load name */
         entry->name_pool_offset = table->pool.size;
         entry->name_length = 0;
 
@@ -542,7 +542,7 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
 
         size_t name_size = entry->name_length + 1;
         if (entry->name_pool_offset + name_size >= table->pool.capacity) {
-            // Increase pool capacity if not enough
+            /* Increase pool capacity if not enough */
             do {
                 table->pool.capacity *= 2;
             } while (
@@ -555,7 +555,7 @@ static bite__status_e bite__table_read(bite__table_t *table, bite__header_t *hea
                 bite__table_close(table);
                 return BITE_ERR_BAD_ALLOC;
             }
-            // printf("reallocated %zu bytes for name pool\n", table->pool.capacity);
+            /* printf("reallocated %zu bytes for name pool\n", table->pool.capacity); */
         }
 
         bite__fread(&table->pool.ptr[entry->name_pool_offset], (bite__impl_size_t)entry->name_length, file);
@@ -587,7 +587,7 @@ static void bite__table_close(bite__table_t *table) {
     table->pool.capacity = 0;
 }
 
-// Checks whether or not the char is a path separator.
+/* Checks whether or not the char is a path separator. */
 static inline int bite__path_is_separator(char ch) {
     return ch == '/';
 }
@@ -603,32 +603,32 @@ static inline int bite__path_is_separator(char ch) {
  * Returns 1 if a segment was found, 0 if there are no more segments.
  */
 int bite__path_view_next(struct bite__path_view *path) {
-    // Jump to next separator
+    /* Jump to next separator */
     path->pos += path->size;
-    path->size = 0; // Reset size, as that is now unknown.
+    path->size = 0; /* Reset size, as that is now unknown. */
 
     size_t i = path->pos;
 
-    // Fail if out-of-bounds
+    /* Fail if out-of-bounds */
     if (i >= path->src_size) {
         return 0;
     }
 
-    // Move out of path separator
+    /* Move out of path separator */
     for (; i < path->src_size; i++) {
         if (!bite__path_is_separator(path->src[i])) {
             break;
         }
     }
 
-    // Fail if out-of-bounds
+    /* Fail if out-of-bounds */
     if (i >= path->src_size) {
         return 0;
     }
 
     size_t start = i;
 
-    // Find next separator to determine the size
+    /* Find next separator to determine the size */
     for (; i < path->src_size; i++) {
         if (bite__path_is_separator(path->src[i])) {
             break;
@@ -664,12 +664,12 @@ static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed,
         .size = 0,
     };
 
-    // For every segment for this path...
+    /* For every segment for this path... */
     while (bite__path_view_next(&segment)) {
         const char *segment_name = segment.src + segment.pos;
         const size_t segment_length = segment.size;
 
-        // Scan current dir tree for any name match
+        /* Scan current dir tree for any name match */
         int found = 0;
         for (size_t i = begin; i < end; i++) {
             entry = packed->table.file.entries + i;
@@ -678,19 +678,19 @@ static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed,
 
             if (entry->name_length == segment_length &&
                 strncmp(segment_name, name_ptr, segment_length) == 0) {
-                // Names match
+                /* Names match */
                 if (entry->flags & ENTRY_IS_DIR) {
-                    // This is a directory.
-                    // Enter directory subtree
+                    /* This is a directory. */
+                    /* Enter directory subtree */
                     begin = i + 1;
                     end = i + entry->dir_sibling_offset + 1;
                     found = 1;
                     break;
                 } else {
-                    // This is a file.
-                    // Does the path have any more segments?
+                    /* This is a file. */
+                    /* Does the path have any more segments? */
                     if (bite__path_view_next(&segment)) {
-                        // If so, then filepath is invalid.
+                        /* If so, then filepath is invalid. */
                         BITE_ERROR_MSG(
                             "%s: treats file as if it were a directory.",
                             filepath);
@@ -699,14 +699,14 @@ static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed,
                     return entry;
                 }
             } else {
-                // Names aren't the same
+                /* Names aren't the same */
                 if (entry->flags & ENTRY_IS_DIR) {
-                    i += entry->dir_sibling_offset; // Skip to sibling entry.
+                    i += entry->dir_sibling_offset; /* Skip to sibling entry. */
                 }
             }
         }
 
-        // If no match was found in this subtree, then path is invalid.
+        /* If no match was found in this subtree, then path is invalid. */
         if (!found) {
             entry = NULL;
             break;
@@ -721,11 +721,11 @@ static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed,
     return NULL;
 }
 
-// Prepares a bite_file_t object.
+/* Prepares a bite_file_t object. */
 static bite_file_t *bite__file_open_entry(const bite_packed_t *packed_ref, const bite__entry_t *entry_ref) {
     bite_file_t *file = (bite_file_t *)malloc(sizeof(*file));
 
-    // just in case...
+    /* just in case... */
     if (!file) {
         return NULL;
     }

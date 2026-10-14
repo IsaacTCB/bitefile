@@ -19,15 +19,15 @@ extern "C" {
  * then make BITEFILE_USE_SHARED is defined!
  */
 #if defined(_WIN32)
-// Building as dynamic lib on Windows
+/* Building as dynamic lib on Windows */
 #if defined(BITEFILE_BUILD_LIB)
 #define BITE_API __declspec(dllexport)
-// Linking as dynamic lib on Windows
+/* Linking as dynamic lib on Windows */
 #elif defined(BITEFILE_USE_SHARED)
 #define BITE_API __declspec(dllimport)
 #endif
 #elif defined(__GNUC__)
-// Building as shared object on Unix systems
+/* Building as shared object on Unix systems */
 #if defined(BITEFILE_BUILD_LIB)
 #define BITE_API __attribute__((visibility("default")))
 #endif
@@ -174,4 +174,4 @@ BITE_API const char *bite_error_str();
 }
 #endif
 
-#endif // BITE_IMPL_H
+#endif /* BITE_IMPL_H */
