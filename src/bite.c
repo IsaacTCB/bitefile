@@ -4,11 +4,11 @@
  * Licensed under the MIT License
  */
 
-#include <bitefile/bite.h>
-
 #if defined(BITEFILE_LARGE_FILES)
 #define _FILE_OFFSET_BITS 64
 #endif
+
+#include <bitefile/bite.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -308,7 +308,7 @@ void bite_fclose(bite_file_t *file) {
 
     /* Close any dupped file handles */
     if (file->handle_override) {
-        file->packed_ref->callbacks.close(file->handle_override);
+        bite__close_callbacks(&file->packed_ref->callbacks, file->handle_override);
         file->handle_override = NULL;
     }
 
@@ -339,11 +339,11 @@ bite_size_t bite_fread(void *dst, bite_size_t size, bite_file_t *file) {
     }
 
     /* Limit reading size */
-    bite__impl_size_t to_read = (bite__impl_size_t)size;
-    if (file->pos >= entry->data_size) {
-        to_read = 0;
-    } else if (file->pos + to_read >= entry->data_size) {
-        to_read = entry->data_size - file->pos;
+    bite__impl_size_t to_read = 0;
+    if (file->pos < entry->data_size) {
+        /* Clamp in unsigned space, so huge sizes can't wrap into negatives */
+        bite_size_t remaining = (bite_size_t)(entry->data_size - file->pos);
+        to_read = (bite__impl_size_t)(size < remaining ? size : remaining);
     }
 
     if (to_read != 0) {
@@ -417,6 +417,11 @@ int bite_fseek(bite_file_t *file, bite_offset_t offset, int whence) {
 bite_file_t *bite_fdup(const bite_file_t *file) {
     if (!file) {
         BITE_ERROR_MSG("bite_fdup(): file handle is NULL");
+        return NULL;
+    }
+
+    if (!file->packed_ref->callbacks.open || !file->packed_ref->callbacks.close) {
+        BITE_ERROR_MSG("bite_fdup(): packed file open() callback not defined.");
         return NULL;
     }
 
