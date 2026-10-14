@@ -7,10 +7,10 @@ Licensed under the MIT License
 
 """
 
-import struct
 import os
-from io import BufferedReader
+import struct
 from argparse import ArgumentParser, Namespace
+from io import BufferedReader
 from pathlib import Path
 
 
@@ -24,21 +24,18 @@ def unpack_bite(bite: BufferedReader, extract_path: Path) -> None:
 # Core
 # ==========================
 
+
 class BiteParsingError(Exception):
     def __init__(self, message):
-        super.__init__(message)
+        super().__init__(message)
 
 
 class ExtractionFailure(Exception):
     def __init__(self, message):
-        super.__init__(message)
+        super().__init__(message)
 
 
-def extract_tree(
-    bite: BufferedReader,
-    table: list[dict],
-    extract_path: Path
-) -> None:
+def extract_tree(bite: BufferedReader, table: list[dict], extract_path: Path) -> None:
     """
     Extracts all files/dirs from the flattened file table tree
     """
@@ -128,7 +125,7 @@ def read_string(file: BufferedReader) -> str:
     length = read_struct("<B", file)
 
     bytedata = file.read(length)
-    string = bytedata.decode('utf-8')
+    string = bytedata.decode("utf-8")
     return string
 
 
@@ -139,7 +136,7 @@ def read_header(bite: BufferedReader) -> dict:
     """
 
     magic = bite.read(4)
-    if magic != b'BITE':
+    if magic != b"BITE":
         raise BiteParsingError("File is not a Bite file!")
 
     version = read_struct("<H", bite)
@@ -196,7 +193,7 @@ def read_dir_entry(bite: BufferedReader, flags: int) -> dict:
         "sibling": sibling,
         "children": children,
         "size": total_size,
-        "name": name
+        "name": name,
     }
 
 
@@ -227,6 +224,7 @@ def read_table(bite: BufferedReader, header: dict) -> list[dict]:
 # Helpers
 # ==========================
 
+
 def build_parser() -> ArgumentParser:
     """
     Builds an argparse object containing all relevant cli data
@@ -237,19 +235,18 @@ def build_parser() -> ArgumentParser:
         description="Bite file extractor",
     )
     parser.add_argument(
-        "input",
-        help="select Bite for extraction.",
-        type=str,
-        metavar="bite"
+        "input", help="select Bite for extraction.", type=str, metavar="bite"
     )
     parser.add_argument(
-        "-e", "--extract-to",
+        "-e",
+        "--extract-to",
         help="specify a destination path for extracted files",
         type=str,
         default="",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         help="display extra messages",
         action="store_true",
     )
@@ -269,6 +266,7 @@ def _print(*args):
 # Entrypoint
 # ==========================
 
+
 def main():
     """
     Entrypoint
@@ -286,7 +284,7 @@ def main():
         unpack_bite(bite, Path(args.extract_to))
         _print("Extraction complete!")
     except FileNotFoundError:
-        print(f"Unable to open \"{args.input}\"")
+        print(f'Unable to open "{args.input}"')
         exit(2)
     # except Exception as exception:
     #     print(exception)

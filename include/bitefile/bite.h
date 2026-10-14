@@ -19,18 +19,18 @@ extern "C" {
  * then make BITEFILE_USE_SHARED is defined!
  */
 #if defined(_WIN32)
-    // Building as dynamic lib on Windows
-    #if defined(BITEFILE_BUILD_LIB)
-        #define BITE_API __declspec(dllexport)
-    // Linking as dynamic lib on Windows
-    #elif defined(BITEFILE_USE_SHARED)
-        #define BITE_API __declspec(dllimport)
-    #endif
+// Building as dynamic lib on Windows
+#if defined(BITEFILE_BUILD_LIB)
+#define BITE_API __declspec(dllexport)
+// Linking as dynamic lib on Windows
+#elif defined(BITEFILE_USE_SHARED)
+#define BITE_API __declspec(dllimport)
+#endif
 #elif defined(__GNUC__)
-    // Building as shared object on Unix systems
-    #if defined(BITEFILE_BUILD_LIB)
-        #define BITE_API __attribute__((visibility("default")))
-    #endif
+// Building as shared object on Unix systems
+#if defined(BITEFILE_BUILD_LIB)
+#define BITE_API __attribute__((visibility("default")))
+#endif
 #endif
 
 #if !defined(BITE_API)
@@ -76,7 +76,7 @@ typedef uint64_t bite_size_t;
  * @param filepath Length must be < 255.
  * @return `bite_packed_t*` handle or `NULL` on failure.
  */
-BITE_API bite_packed_t* bite_packed_open(const char* filepath);
+BITE_API bite_packed_t *bite_packed_open(const char *filepath);
 
 /**
  * @brief Closes a bite packed archive file.
@@ -87,7 +87,7 @@ BITE_API bite_packed_t* bite_packed_open(const char* filepath);
  *
  * @param packed The bite packed handle.
  */
-BITE_API void bite_packed_close(bite_packed_t* packed);
+BITE_API void bite_packed_close(bite_packed_t *packed);
 
 /**
  * @brief Opens a file handle from the bite packed.
@@ -99,7 +99,7 @@ BITE_API void bite_packed_close(bite_packed_t* packed);
  * @param filepath Length must be < 255.
  * @return `bite_file_t*` handle or `NULL` on failure.
  */
-BITE_API bite_file_t* bite_fopen(const bite_packed_t* packed, const char* filepath);
+BITE_API bite_file_t *bite_fopen(const bite_packed_t *packed, const char *filepath);
 
 /**
  * @brief Get the filename from an open file handle.
@@ -107,7 +107,7 @@ BITE_API bite_file_t* bite_fopen(const bite_packed_t* packed, const char* filepa
  * @param file A valid bite_file_t* handle
  * @return The filename string
  */
-BITE_API const char* bite_fname(bite_file_t* file);
+BITE_API const char *bite_fname(bite_file_t *file);
 
 /**
  * @brief Returns the total file size from an open file handle
@@ -115,7 +115,7 @@ BITE_API const char* bite_fname(bite_file_t* file);
  * @param file A valid bite_file_t* handle
  * @return A bite_size_t with the file size.
  */
-BITE_API bite_size_t bite_fsize(const bite_file_t* file);
+BITE_API bite_size_t bite_fsize(const bite_file_t *file);
 
 /**
  * @brief Reads no more than `size` bytes into `dst` from the given file handle.
@@ -125,7 +125,7 @@ BITE_API bite_size_t bite_fsize(const bite_file_t* file);
  * @param file A valid bite_file_t* handle
  * @return The amount of bytes read. Might be less than `size` if EOF was reached.
  */
-BITE_API bite_size_t bite_fread(void* dst, bite_size_t size, bite_file_t* file);
+BITE_API bite_size_t bite_fread(void *dst, bite_size_t size, bite_file_t *file);
 
 /**
  * @brief Returns the current file cursor offset from the given file handle.
@@ -133,7 +133,7 @@ BITE_API bite_size_t bite_fread(void* dst, bite_size_t size, bite_file_t* file);
  * @param file A valid bite_file_t* handle
  * @return The current file offset.
  */
-BITE_API bite_offset_t bite_ftell(const bite_file_t* file);
+BITE_API bite_offset_t bite_ftell(const bite_file_t *file);
 
 /**
  * @brief Set the file cursor offset based on an offset and a whence/origin.
@@ -143,7 +143,7 @@ BITE_API bite_offset_t bite_ftell(const bite_file_t* file);
  * @param whence Can be `SEEK_SET`, `SEEK_END` or `SEEK_CUR`.
  * @return Returns non-zero on fail.
  */
-BITE_API int bite_fseek(bite_file_t* file, bite_offset_t pos, int whence);
+BITE_API int bite_fseek(bite_file_t *file, bite_offset_t pos, int whence);
 
 /**
  * @brief Duplicates a bite file handle under a new file descriptor.
@@ -154,21 +154,21 @@ BITE_API int bite_fseek(bite_file_t* file, bite_offset_t pos, int whence);
  * @param file A valid bite_file_t* handle
  * @return A new bite_file_t* handle.
  */
-BITE_API bite_file_t* bite_fdup(const bite_file_t* file);
+BITE_API bite_file_t *bite_fdup(const bite_file_t *file);
 
 /**
  * @brief Closes a bite file handle.
  *
  * @param file A valid bite_file_t* handle
  */
-BITE_API void bite_fclose(bite_file_t* file);
+BITE_API void bite_fclose(bite_file_t *file);
 
 /**
  * @brief Get error string for logging.
  *
  * @return A pointer to the error string buffer.
  */
-BITE_API const char* bite_error_str();
+BITE_API const char *bite_error_str();
 
 #if defined(__cplusplus)
 }
