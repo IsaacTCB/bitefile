@@ -172,14 +172,13 @@ bite_packed_t *bite_packed_open(const char *filepath) {
         return NULL;
     }
 
-    packed = (bite_packed_t *)malloc(sizeof(*packed));
+    packed = (bite_packed_t *)calloc(1, sizeof(*packed));
     if (packed == NULL) {
         BITE_ERROR_MSG("Unable to allocate data for \"%s\" handle.", filepath);
         fclose(file);
         return NULL;
     }
 
-    memset(packed, 0, sizeof(*packed));
     snprintf(packed->path, sizeof(packed->path), "%s", filepath);
     packed->handle = file;
 
@@ -723,14 +722,13 @@ static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed,
 
 /* Prepares a bite_file_t object. */
 static bite_file_t *bite__file_open_entry(const bite_packed_t *packed_ref, const bite__entry_t *entry_ref) {
-    bite_file_t *file = (bite_file_t *)malloc(sizeof(*file));
+    bite_file_t *file = (bite_file_t *)calloc(1, sizeof(*file));
 
     /* just in case... */
     if (!file) {
         return NULL;
     }
 
-    memset(file, 0, sizeof(*file));
     file->packed_ref = packed_ref;
     file->entry_ref = entry_ref;
     file->handle_override = NULL;
