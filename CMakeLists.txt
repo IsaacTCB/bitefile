@@ -4,6 +4,8 @@ cmake_minimum_required(VERSION 3.21)
 
 project(bitefile VERSION 0.1.0 LANGUAGES C)
 
+include(GNUInstallDirs)
+
 # Options
 option(BITEFILE_BUILD_EXAMPLES "Build example projects" ${PROJECT_IS_TOP_LEVEL})
 option(BITEFILE_BUILD_SHARED "Build bitefile as a shared library" ${BUILD_SHARED_LIBS})
