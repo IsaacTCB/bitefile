@@ -231,7 +231,7 @@ BITE_API void bite_fclose(bite_file_t *file);
  *
  * @return A pointer to the error string buffer.
  */
-BITE_API const char *bite_error_str();
+BITE_API const char *bite_error_str(void);
 
 #if defined(__cplusplus)
 }
