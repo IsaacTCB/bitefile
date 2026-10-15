@@ -26,10 +26,10 @@ if(NOT BITEFILE_BUILD_SHARED)
 else()
     message(STATUS "Building bitefile as a shared library")
     add_library(bitefile SHARED ${BITEFILE_SOURCES})
-    set_target_properties(bitefile PROPERTY C_VISIBILITY_PRESET hidden)
+    set_target_properties(bitefile PROPERTIES C_VISIBILITY_PRESET hidden)
     target_compile_definitions(bitefile
         PRIVATE $<BUILD_INTERFACE:BITEFILE_BUILD_LIB>
-        INTERFACE $<BUILD_INTERFACE:BITEFILE_USE_SHARED>
+        INTERFACE BITEFILE_USE_SHARED
     )
 endif()
 
