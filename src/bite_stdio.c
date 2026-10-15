@@ -8,6 +8,12 @@
 #endif
 #endif
 
+#if defined(_WIN32)
+/* fixes MSVC compiler warning caused by
+ * fopen() being considered """unsafe"""" */
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "bite_stdio.h"
 
 #include <stdio.h>
