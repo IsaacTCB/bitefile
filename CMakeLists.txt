@@ -12,6 +12,11 @@ option(BITEFILE_LARGE_FILES "Enable reading files larger than 2 GiB" ON)
 # Building
 set(BITEFILE_SOURCES src/bite.c)
 
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED TRUE)
+# TODO: strip out extension usage from bite.c before disabling extensions
+# set(CMAKE_C_EXTENSIONS OFF)
+
 if(NOT BITEFILE_BUILD_SHARED)
     message(STATUS "Building bitefile as a static library")
     add_library(bitefile STATIC ${BITEFILE_SOURCES})
