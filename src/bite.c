@@ -4,10 +4,6 @@
  * Licensed under the MIT License
  */
 
-#if defined(BITEFILE_LARGE_FILES)
-#define _FILE_OFFSET_BITS 64
-#endif
-
 #include <bitefile/bite.h>
 
 #include <assert.h>
@@ -16,6 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "bite_stdio.h"
 
 #define BITE_FILE_MAGIC (1163151682) /* BITE, in ASCII */
 #define BITE_FILE_VERSION (1)
@@ -30,7 +28,7 @@
     } while (0)
 
 /* Error handling stuff. Might not be a good idea to use a shared global for thread safety reasons. */
-#define BITE_ERROR_MSG_SIZE (256)
+#define BITE_ERROR_MSG_SIZE (512)
 static char error_text_buffer[BITE_ERROR_MSG_SIZE];
 
 /* Convenience function for printing to the error text buffer. */
@@ -48,27 +46,6 @@ typedef int32_t bite__impl_offset_t;
 #define BITE_SIZE_MAX (INT32_MAX)
 #define BITE_OFFSET_MAX (INT32_MAX)
 #define BITE_OFFSET_MIN (INT32_MIN)
-#endif
-
-/*
- * Determines what fseek/ftell functions to use on 64-bit
- *
- * todo: move this into a separate file
- * and write a proper function for this
- */
-#if defined(BITEFILE_LARGE_FILES)
-#if defined(_WIN32)
-#define ftell_64 (_ftelli64)
-#define fseek_64 (_fseeki64)
-#elif defined(__GNUC__)
-#define ftell_64 (ftello)
-#define fseek_64 (fseeko)
-#endif
-#endif
-/* If all of those checks failed, then fallback to standard functions. */
-#if !defined(ftell_64) || !defined(fseek_64)
-#define ftell_64 (ftell)
-#define fseek_64 (fseek)
 #endif
 
 typedef enum {
@@ -102,13 +79,13 @@ typedef struct {
     uint32_t flags; /* Represented by bite__entry_flags_e */
     union {
         struct {
-            bite__impl_offset_t data_offset; /* Is 0 for empty files */
-        };
+            bite__impl_offset_t offset; /* Is 0 for empty files */
+        } file;
         struct {
-            uint32_t dir_sibling_offset;
-            uint32_t dir_children_count;
-        };
-    };
+            uint32_t sibling_offset;
+            uint32_t children_count;
+        } dir;
+    } data;
     bite__impl_size_t data_size;
     uint32_t reserved;
     size_t name_pool_offset;
@@ -145,33 +122,6 @@ struct bite_file {
     void *userdata_override;
     bite__impl_offset_t pos;
 };
-
-/* =================== *
- *   stdio callbacks   *
- * =================== */
-
-/* TODO: move all of these callbacks into their own special file,
- * and also add the option to disable stdio altogether */
-
-static bite_size_t bite__stdio_read(void *dst, bite_size_t size, void *userdata) {
-    return (bite_size_t)fread(dst, 1, size, (FILE *)userdata);
-}
-
-static int bite__stdio_seek(void *userdata, bite_offset_t offset, int whence) {
-    return fseek_64((FILE *)userdata, offset, whence);
-}
-
-static void *bite__stdio_open(const char *filepath) {
-    return (void *)fopen(filepath, "rb");
-}
-
-static int bite__stdio_close(void *userdata) {
-    return fclose((FILE *)userdata);
-}
-
-static bite_offset_t bite__stdio_tell(void *userdata) {
-    return (bite_offset_t)ftell_64((FILE *)userdata);
-}
 
 /* =================== *
  *       Public        *
@@ -267,16 +217,14 @@ fail:
 
 /* Open a bite packed archive using the filepath */
 bite_packed_t *bite_packed_open(const char *filepath) {
-    static const bite_callbacks_t s_callbacks = {
-        .read = &bite__stdio_read,
-        .seek = &bite__stdio_seek,
-        .open = &bite__stdio_open,
-        .close = &bite__stdio_close,
-        .tell = &bite__stdio_tell,
-    };
+    bite_callbacks_t callbacks;
+    if (!bite__stdio_callbacks(&callbacks)) {
+        BITE_ERROR_MSG("Failed to open stdio callbacks.");
+        return NULL;
+    }
 
     return bite_packed_open_callbacks(
-        &s_callbacks, NULL,
+        &callbacks, NULL,
         filepath);
 }
 
@@ -385,7 +333,7 @@ bite_size_t bite_fread(void *dst, bite_size_t size, bite_file_t *file) {
                            : file->packed_ref->userdata;
 
         file->packed_ref->callbacks.seek(
-            userdata, (bite__impl_offset_t)entry->data_offset + file->pos, SEEK_SET);
+            userdata, (bite__impl_offset_t)entry->data.file.offset + file->pos, SEEK_SET);
         file->pos += to_read;
 
         int result = bite__fread(dst, to_read, &file->packed_ref->callbacks, userdata);
@@ -479,7 +427,7 @@ bite_file_t *bite_fdup(const bite_file_t *file) {
 }
 
 /* Returns the a string containing the error info */
-const char *bite_error_str() {
+const char *bite_error_str(void) {
     return error_text_buffer;
 }
 
@@ -503,7 +451,14 @@ struct bite__path_view {
 /* Raw usage of this function should be avoided unless strictly needed; */
 /* Use BITE_IMPL_READ wrapper instead, as it is safer and a whole lot cleaner. */
 static int bite__fread(void *out_ptr, bite__impl_size_t size, const bite_callbacks_t *callbacks, void *userdata) {
-    return (callbacks->read(out_ptr, size, userdata)) == size;
+    /* bite__impl_size_t is signed, bite_size_t is not.
+     * ignore size reads less than 0. */
+    if (size < 0) {
+        return 0;
+    }
+
+    bite_size_t read_amount = (bite_size_t)size;
+    return callbacks->read(out_ptr, read_amount, userdata) == read_amount;
 }
 
 /*
@@ -559,8 +514,8 @@ static bite__status_e bite__entry_read(bite__entry_t *entry, const bite_callback
     BITE_IMPL_READ(&(entry->flags), callbacks, userdata);
     /* Is this a dir entry? */
     if (entry->flags & ENTRY_IS_DIR) {
-        BITE_IMPL_READ(&(entry->dir_sibling_offset), callbacks, userdata);
-        BITE_IMPL_READ(&(entry->dir_children_count), callbacks, userdata);
+        BITE_IMPL_READ(&(entry->data.dir.sibling_offset), callbacks, userdata);
+        BITE_IMPL_READ(&(entry->data.dir.children_count), callbacks, userdata);
     }
     /* This is a file entry? */
     else {
@@ -568,7 +523,7 @@ static bite__status_e bite__entry_read(bite__entry_t *entry, const bite_callback
         if (temp > BITE_OFFSET_MAX) {
             return BITE_ERR_TOO_LARGE;
         }
-        entry->data_offset = (bite__impl_offset_t)temp;
+        entry->data.file.offset = (bite__impl_offset_t)temp;
     }
 
     BITE_IMPL_READ(&temp, callbacks, userdata);
@@ -746,7 +701,8 @@ int bite__path_view_next(struct bite__path_view *path) {
  * Returns null if no entry was found.
  */
 static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed, const char *filepath) {
-    assert(packed->table.file.entries > 0);
+    assert(packed->table.file.entries);
+    assert(packed->table.file.count > 0);
 
     const size_t path_length = bite__strnlen(filepath, BITE_PATH_MAX_LENGTH);
     if (path_length >= BITE_PATH_MAX_LENGTH) {
@@ -784,7 +740,7 @@ static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed,
                     /* This is a directory. */
                     /* Enter directory subtree */
                     begin = i + 1;
-                    end = i + entry->dir_sibling_offset + 1;
+                    end = i + entry->data.dir.sibling_offset + 1;
                     found = 1;
                     break;
                 } else {
@@ -802,7 +758,7 @@ static const bite__entry_t *bite__packed_find_entry(const bite_packed_t *packed,
             } else {
                 /* Names aren't the same */
                 if (entry->flags & ENTRY_IS_DIR) {
-                    i += entry->dir_sibling_offset; /* Skip to sibling entry. */
+                    i += entry->data.dir.sibling_offset; /* Skip to sibling entry. */
                 }
             }
         }
