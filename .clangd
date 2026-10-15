@@ -3,6 +3,9 @@ CompileFlags:
 
 Diagnostics:
   ClangTidy:
+    CheckOptions:
+      bugprone-reserved-identifier.AllowedIdentifiers: '_POSIX_C_SOURCE;_CRT_SECURE_NO_WARNINGS;_FILE_OFFSET_BITS'
+
     Add:
       - bugprone-*
       - performance-*
