@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: MIT
+/*
+ * Copyright (c) 2026-present IsaacTCB
+ * Licensed under the MIT License
+ */
+
 /* TODO: add the option to disable stdio altogether */
 
 #if defined(BITEFILE_LARGE_FILES)

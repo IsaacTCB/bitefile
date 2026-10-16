@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: MIT
+/*
+ * Copyright (c) 2026-present IsaacTCB
+ * Licensed under the MIT License
+ */
+
 #ifndef BITE_STDIO_H
 #define BITE_STDIO_H
 
