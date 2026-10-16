@@ -361,7 +361,7 @@ int bite_fseek(bite_file_t *file, bite_offset_t offset, int whence) {
         return -1;
     }
 
-    if (offset < BITE_OFFSET_MIN && offset > BITE_OFFSET_MAX) {
+    if (offset < BITE_OFFSET_MIN || offset > BITE_OFFSET_MAX) {
         BITE_ERROR_MSG("bite_fseek(): offset is too large. Enabling BITEFILE_LARGE_FILES might solve this.");
         return -1;
     }
