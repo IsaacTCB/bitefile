@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT //
+// SPDX-License-Identifier: MIT
 /*
  * Copyright (c) 2026-present IsaacTCB
  * Licensed under the MIT License
@@ -395,6 +395,13 @@ int bite_fseek(bite_file_t *file, bite_offset_t offset, int whence) {
  * Allows for safer multi-threaded operations when using a shared bite_packed_t* file.
  */
 bite_file_t *bite_fdup(const bite_file_t *file) {
+    /* POSSIBLE PROBLEMS WITH DUPPING:
+     * - Dupping a file assumes the packed file is located at
+     * the exact same path, and it also assumes its content
+     * and the table remains the same. This could lead corrupted
+     * reads. We could verify magic once again, at the very least.
+     */
+
     if (!file) {
         BITE_ERROR_MSG("bite_fdup(): file handle is NULL");
         return NULL;
